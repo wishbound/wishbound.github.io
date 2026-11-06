@@ -1,27 +1,29 @@
-/* Wishbound — game data and app config.
-   Edit this file to update packs, income amounts, love interests or credits. */
+/* Wishbound settings and game rules. Edit this file to change prices, income amounts or credits. */
 "use strict";
 
 const CONFIG = {
   appName: "Wishbound",
-  tagline: "LADS wish & spending tracker",
+  tagline: "Every wish, accounted for",
   author: "@pookieleb",
   authorUrl: "https://x.com/pookieleb",
   githubUrl: "https://github.com/Myouipingu/wishbound",
-  kofiUrl: "",            // put a Ko-fi / Buy Me a Coffee link here to show the support button
+  kofiUrl: "",              // add a Ko-fi / Buy Me a Coffee link to show a support button
   hardPity: 70,
   softPity: 60,
   diamondsPerWish: 150,
-  version: "2.0.0"
+  version: "3.0.0",
+  // Sync between devices (Supabase). Leave empty until the database is set up.
+  syncUrl: "",
+  syncKey: ""
 };
 
-/* Love interests. Colours are Wishbound's own, not official. */
+/* Love interests. Colours are the ones fans usually link to each of them. */
 const LIS = [
-  {k: "xavier",  n: "Xavier",  c: "#5b84e6"},
-  {k: "zayne",   n: "Zayne",   c: "#3fa7b8"},
-  {k: "rafayel", n: "Rafayel", c: "#a76bdd"},
-  {k: "sylus",   n: "Sylus",   c: "#d14a4a"},
-  {k: "caleb",   n: "Caleb",   c: "#d99a3e"}
+  {k: "xavier",  n: "Xavier",  c: "#7f9cf0"},
+  {k: "zayne",   n: "Zayne",   c: "#5bb8cc"},
+  {k: "rafayel", n: "Rafayel", c: "#b98ae6"},
+  {k: "sylus",   n: "Sylus",   c: "#d4505c"},
+  {k: "caleb",   n: "Caleb",   c: "#e0a957"}
 ];
 
 const CURRENCIES = [
@@ -30,22 +32,20 @@ const CURRENCIES = [
   ["TWD", "NT$"], ["HKD", "HK$"], ["INR", "₹"], ["BRL", "R$"], ["MXN", "MX$"]
 ];
 
-/* Banner types. pool = which pity counter the banner uses.
-   First-run limited banners share one pity; reruns share another;
-   the standard banner and special banners each have their own. */
 const BANNER_TYPES = [
-  {k: "myth",     n: "Myth",               canRerun: true,  rate: "50/50"},
-  {k: "solo",     n: "Solo",               canRerun: true,  rate: "50/50"},
-  {k: "multi",    n: "Multi",              canRerun: true,  rate: "75/25"},
-  {k: "bday",     n: "Birthday",           canRerun: true,  rate: "50/50"},
-  {k: "special",  n: "Special (Pulse Hunter / Sky's Embrace type)", canRerun: false, rate: "50/50"},
-  {k: "standard", n: "Standard (Xspace Echo)", canRerun: false, rate: "none"}
+  {k: "myth",    n: "Myth"},
+  {k: "solo",    n: "Solo"},
+  {k: "multi",   n: "Multi"},
+  {k: "bday",    n: "Birthday"},
+  {k: "special", n: "Special"}
 ];
+/* Pity pools: first-run limited pools share one pity, reruns share another,
+   special pools (Pulse Hunter, Sky's Embrace type) and Xspace Echo each have their own. */
 const POOLS = {
-  limited:  {n: "Limited",  sub: "Myth, solo, multi & birthday (first run)", guar: true},
-  rerun:    {n: "Rerun",    sub: "All rerun banners", guar: true},
-  special:  {n: "Special",  sub: "Pulse Hunter / Sky's Embrace type", guar: true},
-  standard: {n: "Standard", sub: "Xspace Echo (blue wishes)", guar: false}
+  limited:  {n: "Limited",  sub: "New myth, solo, multi and birthday pools", guar: true},
+  rerun:    {n: "Rerun",    sub: "All rerun pools", guar: true},
+  special:  {n: "Special",  sub: "Pulse Hunter, Sky's Embrace type pools", guar: true},
+  standard: {n: "Xspace Echo", sub: "Standard pool, uses Empyrean Wishes", guar: false}
 };
 function poolFor(type, rerun) {
   if (type === "standard") return "standard";
@@ -53,79 +53,74 @@ function poolFor(type, rerun) {
   return rerun ? "rerun" : "limited";
 }
 
-/* Free wish sources for the "Add free wishes" dropdown */
 const FREE_SOURCES = [
-  "Orbit / farming",
+  "Orbit",
   "Senior Hunter Contest",
-  "Event free pulls (e.g. birthday 20)",
-  "Wish milestone rewards",
-  "Event check-in",
-  "Open Promise rewards",
-  "Codes / compensation",
-  "Daily / weekly tasks",
+  "Event free wishes (e.g. birthday 20)",
+  "Wish reward milestones",
+  "Promise rewards",
+  "Codes and compensation",
+  "Dailies and weeklies",
   "Other"
 ];
 
-/* Pull purposes, so card pulls and extra pulls can be told apart */
-const PURPOSES = [
-  {k: "card",  n: "Going for the card"},
-  {k: "extra", n: "Extra: outfit / pose / milestone"},
-  {k: "rank",  n: "Extra: ranking up the card"}
-];
-
-/* Automatic free income (diamonds). Users can change amounts or switch each off.
-   when: daily | weekly (Mondays) | monthly (1st). need: only while that pass is active. */
+/* Free diamonds from logging in. Users can change the amounts or switch each one off.
+   when: daily, weekly (Mondays), monthly (on the day given). need: only while that pass is active. */
 const INCOME_SOURCES = [
-  {k: "daily",    n: "Daily tasks",              d: 50,  when: "daily"},
-  {k: "weekly",   n: "Weekly tasks",             d: 150, when: "weekly"},
-  {k: "wpack",    n: "Free weekly pack",         d: 20,  when: "weekly"},
-  {k: "login",    n: "Monthly login rewards",    d: 190, when: "monthly"},
-  {k: "aurum",    n: "Aurum Pass daily claim",   d: 100, when: "daily",  need: "aurum"},
-  {k: "ydiamond", n: "Yearly Diamond pass",      d: 120, when: "weekly", need: "ydiamond"},
-  {k: "ywish",    n: "Yearly Wish pass",         d: 150, when: "weekly", need: "ywish"},
-  {k: "ybonus",   n: "All-3 yearly passes bonus", d: 50, when: "weekly", need: "ybonus"}
+  {k: "daily",  n: "Daily tasks",              d: 50,  when: "daily"},
+  {k: "weekly", n: "Weekly tasks",             d: 150, when: "weekly"},
+  {k: "wpack",  n: "Free weekly pack",         d: 20,  when: "weekly"},
+  {k: "login",  n: "Weekly login rewards",     d: 90,  when: "monthly", day: 1},
+  {k: "day15",  n: "15th-day login reward",    d: 100, when: "monthly", day: 15},
+  {k: "aurum",  n: "Aurum Pass",               d: 100, when: "daily",  need: "aurum"},
+  {k: "ydia",   n: "Yearly Diamond Pass",      d: 120, when: "weekly", need: "ydiamond"},
+  {k: "ywish",  n: "Yearly Wish Pass (1 ticket)", d: 150, when: "weekly", need: "ywish"},
+  {k: "ybonus", n: "Deluxe bonus (all 3 yearly passes)", d: 50, when: "weekly", need: "ybonus"}
 ];
 
-/* Passes: days they run for, instant diamonds, and the income source they switch on */
-const PASSES = {
-  aurum:    {n: "Aurum Pass",      days: 30,  instant: 300},
-  ydiamond: {n: "Yearly Diamond",  days: 350, instant: 680},
-  ywish:    {n: "Yearly Wish",     days: 350, instant: 680},
-  ygrowth:  {n: "Yearly Growth",   days: 350, instant: 680},
-  ybonus:   {n: "All-3 yearly bonus", days: 350, instant: 0}
-};
+/* The yearly passes run on the same dates for everyone (50 weeks from the anniversary).
+   Update these when the new year's passes open. */
+const YEARLY = {label: "2026", start: "2025-12-31", end: "2026-12-15", onSale: ["2025-12-31", "2026-01-21"]};
+const PROMISE_DAYS = 60;
 
-/* Default packs. price is in MYR; for other currencies the price is asked on first buy.
-   wishes = Deepspace wishes given straight away; emp = Empyrean (blue) wishes.
-   pass = which pass it starts. total = wishes you get over the whole pass. */
+/* Packs. myr = price in MYR (in-game price list). Other currencies enter their price on first buy.
+   wishes = Deepspace Wishes you get at once, emp = Empyrean Wishes.
+   Purple Crystals are not counted, since most players keep them for outfits. */
 const DEFAULT_PACKS = [
-  {id: "aurum",   group: "Passes", name: "Aurum Pass",      myr: 22.9, wishes: 2,     pass: "aurum",    total: 22,    note: "300 now + 100 diamonds daily for 30 days"},
-  {id: "secret",  group: "Passes", name: "Secret Promise",  myr: 49.9, wishes: 12,    note: "Promise season (about 60 days)"},
-  {id: "vow",     group: "Passes", name: "Heartfelt Vow",   myr: null, wishes: 12,    emp: 10, note: "Secret Promise rewards + 10 Empyrean"},
-  {id: "ydiam",   group: "Passes", name: "Yearly Diamond",  myr: 69.9, wishes: 4.53,  pass: "ydiamond", total: 44.53, note: "680 now + 120 weekly for 50 weeks"},
-  {id: "ywish",   group: "Passes", name: "Yearly Wish",     myr: 49.9, wishes: 4.53,  pass: "ywish",    total: 54.53, note: "680 now + 150 weekly for 50 weeks"},
-  {id: "ygrow",   group: "Passes", name: "Yearly Growth",   myr: 49.9, wishes: 4.53,  pass: "ygrowth",  total: 4.53,  note: "680 now"},
-  {id: "waurum",  group: "Passes", name: "Weekly Aurum",    myr: 34.9, wishes: 7,     note: "150 daily for 7 days"},
-  {id: "s1", group: "Solo banner",  name: "Pack I",   myr: 1.9,  wishes: 1, limit: "3"},
-  {id: "s2", group: "Solo banner",  name: "Pack II",  myr: 4.9,  wishes: 2, limit: "3"},
-  {id: "s3", group: "Solo banner",  name: "Pack III", myr: 22.9, wishes: 6, limit: "3"},
-  {id: "m1", group: "Multi banner", name: "Pack I",   myr: 1.9,  wishes: 1, limit: "5"},
-  {id: "m2", group: "Multi banner", name: "Pack II",  myr: 4.9,  wishes: 2, limit: "3"},
-  {id: "m3", group: "Multi banner", name: "Pack III", myr: 22.9, wishes: 6, limit: "5"},
-  {id: "y1", group: "Myth banner",  name: "Pack I",   myr: 1.9,  wishes: 1, limit: "5"},
-  {id: "y2", group: "Myth banner",  name: "Pack II",  myr: 4.9,  wishes: 2, limit: "5"},
-  {id: "y3", group: "Myth banner",  name: "Pack III", myr: 22.9, wishes: 6, limit: "5"},
-  {id: "r1", group: "Rerun banner", name: "Pack I",   myr: 4.9,  wishes: 2, limit: "1"},
-  {id: "r2", group: "Rerun banner", name: "Pack II",  myr: 22.9, wishes: 6, limit: "3"},
-  {id: "r3", group: "Rerun banner", name: "Pack III", myr: 39.9, wishes: 8, limit: "3"},
-  {id: "a10", group: "Association", name: "Level 10", myr: 4.9,   wishes: 2},
-  {id: "a15", group: "Association", name: "Level 15", myr: 24.7,  wishes: 6},
-  {id: "a20", group: "Association", name: "Level 20", myr: 34.6,  wishes: 8},
-  {id: "a25", group: "Association", name: "Level 25", myr: 49.45, wishes: 12},
-  {id: "a30", group: "Association", name: "Level 30", myr: 74.19, wishes: 15},
-  {id: "a35", group: "Association", name: "Level 35", myr: 98.94, wishes: 20},
-  {id: "a40", group: "Association", name: "Level 40", myr: 148.44, wishes: 30},
-  {id: "a50", group: "Association", name: "Level 50", myr: 247.42, wishes: 50},
-  {id: "a60", group: "Association", name: "Level 60", myr: 296.92, wishes: 60},
-  {id: "a65", group: "Association", name: "Level 65", myr: 494.9,  wishes: 100}
+  {id: "aurum",  group: "Passes", name: "Aurum Pass",      myr: 22.9, wishes: 0, pass: "aurum", total: 20, gives: "100 Diamonds a day for 30 days (20 wishes)"},
+  {id: "secret", group: "Passes", name: "Secret Promise",  myr: 49.9, wishes: 12, promise: true, gives: "12 Deepspace Wishes for this Promise season"},
+  {id: "vow",    group: "Passes", name: "Heartfelt Vow",   myr: 74.9, wishes: 12, emp: 10, promise: true, gives: "Secret Promise rewards plus 10 Empyrean Wishes", check: true},
+  {id: "ydiam",  group: "Passes", name: "Yearly Diamond Pass", myr: 69.9, wishes: 0, pass: "ydiamond", yearly: true, total: 40, gives: "120 Diamonds a week for 50 weeks"},
+  {id: "ywish",  group: "Passes", name: "Yearly Wish Pass",    myr: 49.9, wishes: 0, pass: "ywish", yearly: true, total: 50, gives: "1 Deepspace Wish a week for 50 weeks"},
+  {id: "ygrow",  group: "Passes", name: "Yearly Growth Pass",  myr: 49.9, wishes: 0, pass: "ygrowth", yearly: true, total: 0, gives: "Growth materials. Buy all 3 yearly passes for the deluxe bonus"},
+  {id: "waurum", group: "Passes", name: "Weekly Aurum",    myr: 34.9, wishes: 7, gives: "150 Diamonds a day for 7 days"},
+  {id: "s1", group: "Solo pool packs",  name: "Pack I",   myr: 1.9,  wishes: 1, limit: 3},
+  {id: "s2", group: "Solo pool packs",  name: "Pack II",  myr: 4.9,  wishes: 2, limit: 3},
+  {id: "s3", group: "Solo pool packs",  name: "Pack III", myr: 22.9, wishes: 6, limit: 3},
+  {id: "m1", group: "Multi pool packs", name: "Pack I",   myr: 1.9,  wishes: 1, limit: 5},
+  {id: "m2", group: "Multi pool packs", name: "Pack II",  myr: 4.9,  wishes: 2, limit: 3},
+  {id: "m3", group: "Multi pool packs", name: "Pack III", myr: 22.9, wishes: 6, limit: 5},
+  {id: "y1", group: "Myth pool packs",  name: "Pack I",   myr: 1.9,  wishes: 1, limit: 5},
+  {id: "y2", group: "Myth pool packs",  name: "Pack II",  myr: 4.9,  wishes: 2, limit: 5},
+  {id: "y3", group: "Myth pool packs",  name: "Pack III", myr: 22.9, wishes: 6, limit: 5},
+  {id: "r1", group: "Rerun pool packs", name: "Pack I",   myr: 4.9,  wishes: 2, limit: 1},
+  {id: "r2", group: "Rerun pool packs", name: "Pack II",  myr: 22.9, wishes: 6, limit: 3},
+  {id: "r3", group: "Rerun pool packs", name: "Pack III", myr: 39.9, wishes: 8, limit: 3},
+  {id: "a10", group: "Association packs", name: "Level 10", myr: 4.9,   wishes: 2,   limit: 1},
+  {id: "a15", group: "Association packs", name: "Level 15", myr: 24.7,  wishes: 6,   limit: 1},
+  {id: "a20", group: "Association packs", name: "Level 20", myr: 34.6,  wishes: 8,   limit: 1},
+  {id: "a25", group: "Association packs", name: "Level 25", myr: 49.45, wishes: 12,  limit: 1},
+  {id: "a30", group: "Association packs", name: "Level 30", myr: 74.19, wishes: 15,  limit: 1},
+  {id: "a35", group: "Association packs", name: "Level 35", myr: 98.94, wishes: 20,  limit: 1},
+  {id: "a40", group: "Association packs", name: "Level 40", myr: 148.44, wishes: 30, limit: 1},
+  {id: "a50", group: "Association packs", name: "Level 50", myr: 247.42, wishes: 50, limit: 1},
+  {id: "a60", group: "Association packs", name: "Level 60", myr: 296.92, wishes: 60, limit: 1},
+  {id: "a65", group: "Association packs", name: "Level 65", myr: 494.9,  wishes: 100, limit: 1}
 ];
+const PASSES = {
+  aurum:    {n: "Aurum Pass"},
+  ydiamond: {n: "Yearly Diamond Pass"},
+  ywish:    {n: "Yearly Wish Pass"},
+  ygrowth:  {n: "Yearly Growth Pass"},
+  ybonus:   {n: "Deluxe bonus"}
+};
