@@ -1,0 +1,14 @@
+{
+  "name": "Wishbound · LADS wish & spending tracker",
+  "short_name": "Wishbound",
+  "description": "Track wishes, pity, spending and cards. Unofficial fan-made tool by @pookieleb.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e0b18",
+  "theme_color": "#0e0b18",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
