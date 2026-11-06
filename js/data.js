@@ -3,7 +3,7 @@
 
 const CONFIG = {
   appName: "Wishbound",
-  tagline: "Every wish, accounted for",
+  tagline: "",
   author: "@pookieleb",
   authorUrl: "https://x.com/pookieleb",
   githubUrl: "https://github.com/Myouipingu/wishbound",
@@ -11,7 +11,7 @@ const CONFIG = {
   hardPity: 70,
   softPity: 60,
   diamondsPerWish: 150,
-  version: "3.0.0",
+  version: "3.1.0",
   // Sync between devices (Supabase). Leave empty until the database is set up.
   syncUrl: "",
   syncKey: ""
@@ -87,9 +87,9 @@ const PROMISE_DAYS = 60;
    wishes = Deepspace Wishes you get at once, emp = Empyrean Wishes.
    Purple Crystals are not counted, since most players keep them for outfits. */
 const DEFAULT_PACKS = [
-  {id: "aurum",  group: "Passes", name: "Aurum Pass",      myr: 22.9, wishes: 0, pass: "aurum", total: 20, gives: "100 Diamonds a day for 30 days (20 wishes)"},
+  {id: "aurum",  group: "Passes", name: "Aurum Pass",      myr: 22.9, wishes: 0, pass: "aurum", total: 20, gives: "100 Diamonds a day for 30 days, added through your login income"},
   {id: "secret", group: "Passes", name: "Secret Promise",  myr: 49.9, wishes: 12, promise: true, gives: "12 Deepspace Wishes for this Promise season"},
-  {id: "vow",    group: "Passes", name: "Heartfelt Vow",   myr: 74.9, wishes: 12, emp: 10, promise: true, gives: "Secret Promise rewards plus 10 Empyrean Wishes", check: true},
+  {id: "vow",    group: "Passes", name: "Heartfelt Vow",   myr: 69.9, wishes: 12, emp: 10, promise: true, gives: "Secret Promise rewards plus 10 Empyrean Wishes"},
   {id: "ydiam",  group: "Passes", name: "Yearly Diamond Pass", myr: 69.9, wishes: 0, pass: "ydiamond", yearly: true, total: 40, gives: "120 Diamonds a week for 50 weeks"},
   {id: "ywish",  group: "Passes", name: "Yearly Wish Pass",    myr: 49.9, wishes: 0, pass: "ywish", yearly: true, total: 50, gives: "1 Deepspace Wish a week for 50 weeks"},
   {id: "ygrow",  group: "Passes", name: "Yearly Growth Pass",  myr: 49.9, wishes: 0, pass: "ygrowth", yearly: true, total: 0, gives: "Growth materials. Buy all 3 yearly passes for the deluxe bonus"},

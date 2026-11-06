@@ -21,6 +21,7 @@ const fmtDate = (d, noYear) => { if (!d) return ""; const [y, m, dd] = d.split("
 const fmtRange = (a, b) => a ? (b ? `${fmtDate(a, true)} to ${fmtDate(b, true)}` : `from ${fmtDate(a, true)}`) : "";
 const addMonth = (m, k) => { let [y, mo] = m.split("-").map(Number); mo += k; while (mo > 12) { mo -= 12; y++; } while (mo < 1) { mo += 12; y--; } return `${y}-${pad(mo)}`; };
 const fmtW = n => { n = r2(n); const s = Math.abs(n % 1) < 0.005 ? n.toFixed(0) : (Math.round(n * 10) / 10).toString(); return s.replace(/\B(?=(\d{3})+(?!\d))/g, ","); };
+const fmtWB = n => Math.floor(r2(n) + 1e-9).toLocaleString("en");
 const sym = () => (CURRENCIES.find(c => c[0] === S.profile.currency) || ["", ""])[1];
 const fmtM = n => { const big = ["IDR", "VND", "KRW", "JPY"].includes(S.profile.currency); return sym() + " " + (+n || 0).toLocaleString("en", {minimumFractionDigits: big ? 0 : 2, maximumFractionDigits: big ? 0 : 2}); };
 const liOf = k => LIS.find(l => l.k === k);
@@ -316,11 +317,11 @@ function viewHome() {
   return `<section class="hero ${img ? "photo" : ""}" style="${img ? `background-image:url('${img}')` : ""}">
     <div class="ringwrap">
       <button class="ring" data-pity="limited" aria-label="Limited pity ${lim.pity} of ${CONFIG.hardPity}. Tap to correct.">${ringSVG(lim.pity, lim.pity >= CONFIG.softPity)}
-        <span class="in"><span class="num">${fmtW(B.ds)}</span><span class="lab">wishes</span></span></button>
+        <span class="in"><span class="num">${fmtWB(B.ds)}</span><span class="lab">wishes</span></span></button>
       <div class="herofacts">
-        <div class="fact"><b>${lim.pity} <span style="font-size:14px;opacity:.7">/ ${CONFIG.hardPity}</span></b>limited pity, ${lim.guar ? "next 5★ guaranteed" : "next 5★ is 50/50"}</div>
-        <div class="fact"><b>${rr.pity}</b>rerun pity${rr.guar ? ", guaranteed" : ""}</div>
-        ${S.profile.trackStandard ? `<div class="fact"><b>${fmtW(B.emp)}</b>Empyrean Wishes</div>` : `<div class="fact"><b class="g">${fmtM(sm)}</b>spent this month</div>`}
+        <div class="fact"><b>${lim.pity} <span style="font-size:14px;opacity:.7">pulled, ${CONFIG.hardPity - lim.pity} to go</span></b>limited pity, ${lim.guar ? "next 5★ guaranteed" : "next 5★ is 50/50"}</div>
+        <div class="fact"><b>${rr.pity} <span style="font-size:14px;opacity:.7">pulled, ${CONFIG.hardPity - rr.pity} to go</span></b>rerun pity${rr.guar ? ", guaranteed" : ""}</div>
+        ${S.profile.trackStandard ? `<div class="fact"><b>${fmtWB(B.emp)}</b>Empyrean Wishes</div>` : `<div class="fact"><b class="g">${fmtM(sm)}</b>spent this month</div>`}
       </div></div>
     <div class="heroacts">
       <button class="main" data-act="pull">${icon("pull")}Log wishes</button>
@@ -340,7 +341,7 @@ function viewHome() {
 }
 function bannerRow(b) {
   const st = bannerStats(b), pl = planFor(b), feat = memsOfPool(b.name);
-  const sub = [bannerKind(b), fmtRange(b.start, b.end)].filter(Boolean).join(", ");
+  const sub = [bannerKind(b), b.approx ? "dates to confirm" : fmtRange(b.start, b.end)].filter(Boolean).join(", ");
   return `<li data-banner="${b.id}">${avatars(b.lis)}<div class="main"><div class="t">${esc(b.name)}</div><div class="s">${esc(sub)}${b.expected ? ` <span class="badge">Expected</span>` : ""}</div></div>
     <div class="r">${st.pulls || pl.pulls ? `<div><b>${st.pulls}</b>${pl.pulls ? `<span class="muted small"> of ${pl.pulls}</span>` : ""}</div><div class="m">wishes used</div>` : feat.length ? `<div class="m">${feat.filter(m => S.owned[m.id]?.have).length} of ${feat.length} owned</div>` : ""}</div></li>`;
 }
@@ -349,14 +350,14 @@ function feedItem(e) {
   let title = e.label || "", sub = [];
   if (e.kind === "pull") {
     title = e.bannerName || "Wishes";
-    (e.results || []).forEach(r => sub.push(`5★ ${r.card || liOf(r.li)?.n || ""}${r.outcome === "lost" ? " (lost 50/50)" : ""} at pity ${r.pity}`));
+    (e.results || []).forEach(r => sub.push(`5★ ${liOf(r.li)?.n || ""}${r.card ? " " + r.card : ""} at pity ${r.pity}${r.outcome === "lost" ? (r.src === "std" ? ", standard card" : ", not your pick") : r.outcome === "std" ? "" : ", limited"}`));
     if (extraOf(e)) sub.push(`${extraOf(e)} extra`);
   } else if (e.kind === "gain") sub.push(e.source || "");
   else if (e.kind === "purchase") sub.push(e.estimate ? "Estimate" : e.bannerName || e.group || "");
   sub.push(fmtDate(e.date, true));
   const mk = {purchase: "bag", pull: "pull", gain: "gift", adjust: "eq"}[e.kind];
   return `<li data-edit="${e.id}"><div class="mark ${e.kind}">${icon(mk)}</div><div class="main"><div class="t">${esc(title)}</div><div class="s">${sub.filter(Boolean).map(esc).join(", ")}</div></div>
-    <div class="r">${w ? `<div class="${w > 0 ? "plus" : "minus"} ${blue ? "blue" : ""}" style="font-weight:700">${w > 0 ? "+" : "−"}${fmtW(Math.abs(w))}</div>` : ""}${e.kind === "purchase" ? `<div class="m">${fmtM(e.amount)}</div>` : ""}</div></li>`;
+    <div class="r">${e.kind === "gain" && e.diamonds ? `<div class="plus" style="font-weight:700">+${num(e.diamonds).toLocaleString()} Diamonds</div>` : w ? `<div class="${w > 0 ? "plus" : "minus"} ${blue ? "blue" : ""}" style="font-weight:700">${w > 0 ? "+" : "−"}${fmtW(Math.abs(w))}</div>` : ""}${e.kind === "purchase" ? `<div class="m">${fmtM(e.amount)}</div>` : ""}</div></li>`;
 }
 
 /* ---------- wish pools tab ---------- */
@@ -389,7 +390,7 @@ function viewBanners() {
   <h2 class="sec">Will I have enough?<span class="sp"></span><button class="act" data-act="income">Income settings</button></h2>
   <div class="panel pad">
     ${P.rows.some(r => r.need) ? `<div class="tablewrap"><table class="t"><thead><tr><th>Month</th><th>Start</th><th>Free</th><th>Packs</th><th>Event</th><th>Planned</th><th>Left</th></tr></thead><tbody>
-    ${P.rows.map(r => `<tr><td>${fmtMonth(r.m)}${r.banners.length ? `<div class="small muted">${r.banners.map(b => esc(b.name)).join(", ")}</div>` : ""}</td><td>${fmtW(r.start)}</td><td class="plus">+${fmtW(r.inc)}</td><td>${r.packs ? "+" + fmtW(r.packs) : ""}</td><td>${r.free ? "+" + fmtW(r.free) : ""}</td><td>${r.need ? "−" + fmtW(r.need) : ""}</td><td class="${r.end < 0 ? "minus" : "plus"}" style="font-weight:700">${fmtW(r.end)}</td></tr>`).join("")}
+    ${P.rows.map(r => `<tr><td>${fmtMonth(r.m)}${r.banners.length ? `<div class="small muted">${r.banners.map(b => esc(b.name)).join(", ")}</div>` : ""}</td><td>${fmtWB(r.start)}</td><td class="plus">+${fmtWB(r.inc)}</td><td>${r.packs ? "+" + fmtW(r.packs) : ""}</td><td>${r.free ? "+" + fmtW(r.free) : ""}</td><td>${r.need ? "−" + fmtW(r.need) : ""}</td><td class="${r.end < 0 ? "minus" : "plus"}" style="font-weight:700">${fmtWB(r.end)}</td></tr>`).join("")}
     </tbody></table></div>` : `<div class="muted">Open a wish pool and set how many wishes you plan to use. This table then shows whether your wishes will last.</div>`}
     <div class="small muted" style="margin-top:8px">Free income is about ${plural(P.inc.auto + P.inc.extra, "wish")} a month from logging in${P.inc.extra ? " and events" : ""}. Rough guide for average luck: Myth 150, Solo 96, Multi 104 wishes.</div></div>
   <h2 class="sec">Past pools</h2>
@@ -399,7 +400,7 @@ function bannerDetail(b) {
   const st = bannerStats(b), pl = planFor(b), pool = poolFor(b.type, b.rerun), feat = memsOfPool(b.name), stat = bannerStatus(b);
   modal(`<div style="display:flex;gap:12px;align-items:center;margin-bottom:4px">${avatars(b.lis)}<div><h3>${esc(b.name)}</h3><div class="small muted">${esc(bannerKind(b))}, ${esc(fmtRange(b.start, b.end) || "dates not set")}</div></div></div>
     ${b.note ? `<div class="note" style="margin:10px 0">${esc(b.note)}</div>` : ""}
-    ${feat.length ? `<div class="lbl" style="margin:12px 0 2px">5★ Memories</div><div>${feat.map(memRow).join("")}</div>` : ""}
+    ${feat.length ? `<div class="lbl" style="margin:12px 0 8px">5★ Memories</div><div class="mgrid">${feat.map(memRow).join("")}</div>` : ""}
     ${stat !== "past" ? `<div class="lbl" style="margin:14px 0 8px">Your plan</div><div class="fields2"><div class="field"><label for="b_p">Wishes I plan to use</label><input id="b_p" type="number" inputmode="numeric" value="${pl.pulls || ""}" placeholder="e.g. 150"></div>
       <div class="field"><label for="b_f">Free wishes from the event</label><input id="b_f" type="number" inputmode="numeric" value="${pl.free || ""}" placeholder="e.g. 20"></div></div>` : ""}
     ${st.pulls || st.spent ? `<div class="summary"><div class="row"><span>Wishes used</span><b>${st.pulls}</b></div>${st.extra ? `<div class="row"><span>Of those, extra (outfits, ranks)</span><span>${st.extra}</span></div>` : ""}
@@ -442,88 +443,104 @@ function bannerForm(b) {
 function pullForm(e, presetBanner) {
   const edit = !!e;
   let kind = e ? (e.pool === "standard" ? "standard" : e.rerun ? "rerun" : "limited") : (presetBanner ? (bannerById(presetBanner)?.rerun ? "rerun" : "limited") : "limited");
-  let bId = e ? (e.bannerId || "") : (presetBanner || "");
-  let events = e ? [...(e.results || []).map(r => { const m = r.memId ? MEM[r.memId] : MEMORIES.find(x => x.name.toLowerCase() === String(r.card || "").toLowerCase() && (!r.li || x.li === r.li)); return {...r, t: "5", res: r.outcome === "lost" ? "off" : "win", memId: r.outcome === "lost" ? "" : (m ? m.id : "")}; }), ...(e.milestones || []).map(m => ({...m, t: "m"}))].sort((a, b) => num(a.at) - num(b.at)) : [];
-  const listFor = k => {
-    if (k === "standard") return [];
-    const all = allBanners().filter(b => k === "rerun" ? b.rerun : !b.rerun), cut = addDays(today(), -45);
-    return all.filter(b => bannerStatus(b) === "current").concat(all.filter(b => bannerStatus(b) === "upcoming"), all.filter(b => bannerStatus(b) === "past" && (b.end || b.start) >= cut).reverse(), all.filter(b => bannerStatus(b) === "past" && (b.end || b.start) < cut).reverse());
+  let bId = e ? (e.bannerId || "") : (presetBanner || ""), bType = e ? e.bannerType : "";
+  let events = e ? [...(e.results || []).map(r => ({t: "5", at: r.at ?? "", li: r.li || "", src: r.src || (r.outcome === "std" || (r.outcome === "lost" && !r.memId) ? "std" : "lim"), precise: r.precise ?? (r.outcome !== "lost"), memId: r.memId || ""})),
+    ...(e.milestones || []).map(m => ({...m, t: "m"}))].sort((a, b) => num(a.at) - num(b.at)) : [];
+  const listFor = k => k === "standard" ? [] : allBanners().filter(b => (k === "rerun" ? b.rerun : !b.rerun) && bannerStatus(b) !== "upcoming" && !b.expected)
+    .sort((a, b) => (bannerStatus(b) === "current") - (bannerStatus(a) === "current") || (b.start || "").localeCompare(a.start || ""));
+  const ctx = el => {
+    if (kind === "standard") return {type: "standard", rerun: false, name: "Xspace Echo", id: ""};
+    const b = bId && bannerById(bId), t = el.querySelector("#f_t") ? val(el, "#f_t") : (b ? b.type : "solo");
+    if (b) return {type: t, rerun: !!b.rerun, name: b.name, id: b.id};
+    return {type: t, rerun: kind === "rerun", name: val(el, "#f_bn").trim() || typeName(t) + " pool", id: ""};
   };
+  const isMulti = t => t === "multi" || t === "special";
   const draw = () => {
     const list = listFor(kind);
     if (kind !== "standard" && bId && !list.some(b => b.id === bId)) bId = "";
     if (kind !== "standard" && !bId && list.length && !e) bId = list[0].id;
+    const cur = bId && bannerById(bId); if (cur && !bType) bType = cur.type;
     modal(`<h3>${edit ? "Edit wishes" : "Log wishes"}</h3>
-      <div class="seg full" style="margin:6px 0 14px">${[["limited", "Limited"], ["rerun", "Rerun"]].concat(S.profile.trackStandard || kind === "standard" ? [["standard", "Xspace Echo"]] : []).map(([k, n]) => `<button type="button" data-kind="${k}" class="${kind === k ? "on" : ""}">${n}</button>`).join("")}</div>
-      ${kind !== "standard" ? `<div class="field"><label for="f_b">Wish pool</label><select id="f_b">${list.map(b => `<option value="${b.id}" ${b.id === bId ? "selected" : ""}>${esc(b.name)} (${esc(typeName(b.type))}${bannerStatus(b) === "current" ? ", now" : ""})</option>`).join("")}<option value="" ${!bId ? "selected" : ""}>Another pool…</option></select></div>
-      <div id="other" ${bId ? "hidden" : ""} class="fields2"><div class="field"><label for="f_t">Type</label><select id="f_t">${BANNER_TYPES.map(t => `<option value="${t.k}" ${e?.bannerType === t.k ? "selected" : ""}>${t.n}</option>`).join("")}</select></div><div class="field"><label for="f_bn">Name</label><input id="f_bn" value="${esc(e && !e.bannerId ? e.bannerName : "")}"></div></div>` : `<p class="small muted" style="margin-top:0">Uses Empyrean Wishes and standard pity.</p>`}
+      <div class="seg full" style="margin:6px 0 14px">${[["limited", "Limited"], ["rerun", "Rerun"], ["standard", "Standard"]].map(([k, n]) => `<button type="button" data-kind="${k}" class="${kind === k ? "on" : ""}">${n}</button>`).join("")}</div>
+      ${kind !== "standard" ? `<div class="field"><label for="f_b">Banner</label><select id="f_b">${list.map(b => `<option value="${b.id}" ${b.id === bId ? "selected" : ""}>${esc(b.name)}${bannerStatus(b) === "current" ? " (current)" : ""}</option>`).join("")}<option value="" ${!bId ? "selected" : ""}>Another banner…</option></select></div>
+      <div class="field" id="otherName" ${bId ? "hidden" : ""}><label for="f_bn">Banner name</label><input id="f_bn" value="${esc(e && !e.bannerId ? e.bannerName : "")}"></div>
+      <div class="field"><label for="f_t">Type</label><select id="f_t">${BANNER_TYPES.map(t => `<option value="${t.k}" ${(bType || "solo") === t.k ? "selected" : ""}>${t.n}</option>`).join("")}</select></div>`
+      : `<p class="small muted" style="margin-top:0">Xspace Echo, the standard pool. Uses Empyrean Wishes and its own pity.</p>`}
       <div class="field"><label for="f_p">How many wishes did you use?</label><input id="f_p" type="number" inputmode="numeric" min="1" value="${e ? e.pulls : ""}" placeholder="e.g. 80"></div>
       <div class="chips" style="margin:-6px 0 16px">${[1, 10, 20, 50].map(n => `<button type="button" class="chip" data-q="${n}">+${n}</button>`).join("")}</div>
       <div class="lbl" style="margin-bottom:8px">What did you get?</div><div id="ev"></div>
-      <div class="chips" style="margin-bottom:14px"><button type="button" class="chip" data-add5>+ 5★ Memory</button><button type="button" class="chip" data-addm>+ Outfit or reward</button></div>
+      <div class="chips" style="margin-bottom:14px"><button type="button" class="chip" data-add5>+ 5★</button><button type="button" class="chip" data-addm>+ Outfit or reward</button></div>
       <div class="summary" id="sum"></div>
       ${dateField(e ? e.date : today())}
       <div class="field"><label for="f_n">Note</label><input id="f_n" value="${esc(e?.note || "")}" placeholder="Optional"></div>
       <div class="acts">${edit ? `<button class="btn danger" data-del>Delete</button>` : `<button class="btn" data-x>Cancel</button>`}<button class="btn primary" data-ok>Save</button></div>`, el => mount(el), true);
   };
-  const ctx = el => {
-    if (kind === "standard") return {type: "standard", rerun: false, lis: [], name: "Xspace Echo", id: ""};
-    const b = bId && bannerById(bId);
-    if (b) return {type: b.type, rerun: !!b.rerun, lis: b.lis || [], name: b.name, id: b.id};
-    return {type: val(el, "#f_t"), rerun: kind === "rerun", lis: [], name: val(el, "#f_bn").trim() || typeName(val(el, "#f_t")) + " pool", id: ""};
+  const outcomeOf = (x, c, guar) => {
+    if (c.type === "standard") return "std";
+    if (x.src === "std") return "lost";
+    if (isMulti(c.type) && !x.precise) return "lost";
+    return guar ? "guar" : "win";
   };
-  const pityBefore = c => { const pool = poolFor(c.type, c.rerun); return {pool, ...poolState(pool, edit ? e.id : null)}; };
   const compute = el => {
-    const c = ctx(el), b = pityBefore(c), n = num(val(el, "#f_p"));
+    const c = ctx(el), pool = poolFor(c.type, c.rerun), b = {pool, ...poolState(pool, edit ? e.id : null)}, n = num(val(el, "#f_p"));
     const five = events.filter(x => x.t === "5").sort((a, z) => num(a.at) - num(z.at));
     let prev = 0, guar = b.guar, warn = "";
-    const results = five.map((x, i) => { const at = num(x.at); if (at < 1 || at > n) warn = "Each 5★ needs a wish number between 1 and " + (n || "your total") + "."; if (at <= prev && i) warn = "Two 5★ can't drop on the same wish."; const pity = i === 0 ? b.pity + at : at - prev; prev = at; const out = c.type === "standard" ? "std" : x.res === "off" ? "lost" : guar ? "guar" : "win"; guar = out === "lost" ? true : out === "std" ? guar : false; return {li: x.li, card: x.card, memId: x.memId, at, pity, outcome: out}; });
+    const results = five.map((x, i) => {
+      const at = num(x.at);
+      if (at < 1 || (n && at > n)) warn = `Each 5★ needs a wish number from 1 to ${n || "your total"}.`;
+      else if (i && at <= prev) warn = "Two 5★ can't be on the same wish.";
+      const pity = i === 0 ? b.pity + at : at - prev; prev = at;
+      const outcome = outcomeOf(x, c, guar); if (outcome === "lost") guar = true; else if (outcome !== "std") guar = false;
+      const pair = c.type !== "standard" && x.src === "lim" ? memsOfPool(c.name).filter(m => m.li === x.li) : [];
+      const memId = x.memId && pair.some(m => m.id === x.memId) ? x.memId : (pair[0] ? pair[0].id : "");
+      return {li: x.li, src: x.src, precise: x.precise, memId, card: memId ? MEM[memId].name : "", at, pity, outcome};
+    });
     const r = sessionMath(b.pity, b.guar, n, results);
-    const featured = results.filter(x => x.outcome === "win" || x.outcome === "guar");
-    const already = c.id && S.entries.some(x => x.kind === "pull" && x.bannerId === c.id && x.id !== e?.id && (x.results || []).some(q => q.outcome === "win" || q.outcome === "guar") && (x.date < (val(el, "#f_d") || today()) || (x.ts || 0) < (e?.ts || Date.now())));
-    const extra = already ? n : featured.length ? n - featured[featured.length - 1].at : 0;
-    return {c, b, n, results, r, extra: Math.max(0, extra), already, warn: warn || r.warn};
+    const got = results.filter(x => x.outcome === "win" || x.outcome === "guar");
+    const already = c.id && S.entries.some(x => x.kind === "pull" && x.bannerId === c.id && x.id !== e?.id && (x.ts || 0) < (e?.ts || Date.now()) && (x.results || []).some(q => q.outcome === "win" || q.outcome === "guar"));
+    const extra = already ? n : got.length ? n - got[got.length - 1].at : 0;
+    return {c, b, n, results, r, extra: Math.max(0, extra), warn: warn || r.warn};
   };
   const drawEvents = el => {
-    const c = ctx(el), feat = memsOfPool(c.name), std = c.type === "standard";
-    const stdMems = MEMORIES.filter(m => m.kind === "permanent");
-    el.querySelector("#ev").innerHTML = events.map((x, i) => x.t === "5" ? `<div class="event" data-i="${i}"><div class="head">5★ Memory<span class="sp"></span><button type="button" class="x" data-rm="${i}">Remove</button></div>
-        <div class="inline" style="margin-bottom:10px"><label for="at${i}">On wish no.</label><input class="inp" id="at${i}" data-k="at" type="number" inputmode="numeric" value="${x.at ?? ""}"><span class="small muted">of the wishes above</span></div>
-        <select class="inp" data-k="pick">${(std ? stdMems : feat).map(m => `<option value="${m.id}" ${x.memId === m.id ? "selected" : ""}>${liOf(m.li).n}: ${esc(m.name)}</option>`).join("")}
-          ${std ? "" : `<option value="off" ${x.res === "off" ? "selected" : ""}>${c.type === "multi" ? "A 5★ I didn't pick (lost)" : "Off-banner 5★ (lost the 50/50)"}</option>`}<option value="other" ${x.memId === "" && x.res !== "off" ? "selected" : ""}>Another Memory…</option></select>
-        ${x.memId === "" || x.res === "off" ? `<div class="fields2" style="margin-top:10px"><select class="inp" data-k="li">${liOptions(x.li, true)}</select><input class="inp" data-k="card" value="${esc(x.card || "")}" placeholder="Memory name" list="dl_m"></div>` : ""}</div>`
-      : `<div class="event" data-i="${i}"><div class="head">Reward<span class="sp"></span><button type="button" class="x" data-rm="${i}">Remove</button></div>
-        <div class="inline"><select class="inp" data-k="what" style="width:auto;flex:1">${["Outfit", "Pose", "Memory crate", "Other reward"].map(w => `<option ${x.what === w ? "selected" : ""}>${w}</option>`).join("")}</select><label for="at${i}">at wish</label><input class="inp" id="at${i}" data-k="at" type="number" inputmode="numeric" value="${x.at ?? ""}"></div></div>`).join("")
-      + `<datalist id="dl_m">${MEMORIES.map(m => `<option value="${esc(m.name)}">`).join("")}</datalist>`;
-    el.querySelectorAll(".event [data-k]").forEach(inp => inp.oninput = inp.onchange = () => {
-      const x = events[+inp.closest(".event").dataset.i], k = inp.dataset.k;
-      if (k === "pick") { const v = inp.value; x.res = v === "off" ? "off" : "win"; x.memId = v === "off" || v === "other" ? "" : v; if (x.memId) { x.li = MEM[v].li; x.card = MEM[v].name; } else { x.card = ""; } drawEvents(el); }
-      else x[k] = k === "at" ? inp.value : inp.value;
-      sum(el);
-    });
+    const c = ctx(el), std = c.type === "standard";
+    el.querySelector("#ev").innerHTML = events.map((x, i) => {
+      if (x.t === "m") return `<div class="event" data-i="${i}"><div class="head">Reward<span class="sp"></span><button type="button" class="x" data-rm="${i}">Remove</button></div>
+        <div class="inline"><select class="inp" data-k="what" style="width:auto;flex:1">${["Outfit", "Pose", "Memory crate", "Other reward"].map(w => `<option ${x.what === w ? "selected" : ""}>${w}</option>`).join("")}</select><label for="at${i}">on wish</label><input class="inp" id="at${i}" data-k="at" type="number" inputmode="numeric" value="${x.at ?? ""}"></div></div>`;
+      const pair = !std && x.src === "lim" ? memsOfPool(c.name).filter(m => m.li === x.li) : [];
+      return `<div class="event" data-i="${i}"><div class="head">5★<span class="sp"></span><button type="button" class="x" data-rm="${i}">Remove</button></div>
+        <div class="inline" style="margin-bottom:10px"><label for="at${i}">On wish no.</label><input class="inp" id="at${i}" data-k="at" type="number" inputmode="numeric" value="${x.at ?? ""}"></div>
+        <div class="fields2"><select class="inp" data-k="li" aria-label="Love interest">${liOptions(x.li)}</select>
+        ${std ? `<span></span>` : `<select class="inp" data-k="src" aria-label="Card type"><option value="lim" ${x.src === "lim" ? "selected" : ""}>Limited card</option><option value="std" ${x.src === "std" ? "selected" : ""}>Standard card</option></select>`}</div>
+        ${!std && x.src === "lim" && isMulti(c.type) ? `<div class="seg full" style="margin-top:10px"><button type="button" data-prec="1" class="${x.precise ? "on" : ""}">My Precise Wish</button><button type="button" data-prec="0" class="${x.precise ? "" : "on"}">Not my pick</button></div>` : ""}
+        ${pair.length > 1 ? `<select class="inp" data-k="memId" style="margin-top:10px" aria-label="Which card">${pair.map(m => `<option value="${m.id}" ${x.memId === m.id ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select>` : ""}</div>`;
+    }).join("");
+    el.querySelectorAll(".event [data-k]").forEach(inp => inp.oninput = inp.onchange = () => { const x = events[+inp.closest(".event").dataset.i]; x[inp.dataset.k] = inp.value; if (inp.dataset.k === "li" || inp.dataset.k === "src") { x.memId = ""; drawEvents(el); } sum(el); });
+    el.querySelectorAll("[data-prec]").forEach(b => b.onclick = () => { events[+b.closest(".event").dataset.i].precise = b.dataset.prec === "1"; drawEvents(el); sum(el); });
     el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { events.splice(+b.dataset.rm, 1); drawEvents(el); sum(el); });
   };
   const sum = el => {
     const k = compute(el), pool = POOLS[k.b.pool], bal = kind === "standard" && S.profile.trackStandard ? balances().emp : balances().ds;
-    const feat = k.results.filter(x => x.outcome === "win" || x.outcome === "guar");
-    el.querySelector("#sum").innerHTML = `<div class="row"><span>${pool.n} pity</span><b>${k.b.pity} → ${k.r.pity}</b></div>
+    const got = k.results.filter(x => x.outcome === "win" || x.outcome === "guar");
+    el.querySelector("#sum").innerHTML = `<div class="row"><span>${pool.n} pity</span><b>${k.b.pity} → ${k.r.pity} <span class="muted small">(${CONFIG.hardPity - k.r.pity} to go)</span></b></div>
       ${pool.guar ? `<div class="row"><span>Next 5★</span><b>${k.r.guar ? "Guaranteed" : "50/50"}</b></div>` : ""}
-      ${feat.length ? `<div class="row"><span>Got the Memory</span><b>at pity ${feat[0].pity}</b></div>` : ""}
+      ${got.length ? `<div class="row"><span>Got your card</span><b>at pity ${got[0].pity}</b></div>` : ""}
       ${k.extra ? `<div class="row"><span>Extra wishes after that</span><b>${k.extra}</b></div>` : ""}
-      <div class="row"><span>Wishes left</span><b>${fmtW(bal + (edit ? e.pulls : 0) - k.n)}</b></div>
+      <div class="row"><span>Wishes left</span><b>${fmtWB(bal + (edit ? e.pulls : 0) - k.n)}</b></div>
       ${k.warn ? `<div class="warn" style="margin-top:8px">${esc(k.warn)}</div>` : ""}`;
   };
   const mount = el => {
     wireDate(el);
-    el.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { kind = b.dataset.kind; bId = ""; events = events.filter(x => x.t === "m"); draw(); });
+    el.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { kind = b.dataset.kind; bId = ""; bType = ""; events = events.filter(x => x.t === "m"); draw(); });
     const sel = el.querySelector("#f_b");
-    if (sel) sel.onchange = () => { bId = sel.value; el.querySelector("#other").hidden = !!bId; drawEvents(el); sum(el); };
-    ["#f_p", "#f_t", "#f_bn", "#f_d"].forEach(s => { const i = el.querySelector(s); if (i) i.oninput = i.onchange = () => { if (s === "#f_t") drawEvents(el); sum(el); }; });
+    if (sel) sel.onchange = () => { bId = sel.value; const b = bId && bannerById(bId); bType = b ? b.type : val(el, "#f_t"); draw(); };
+    ["#f_p", "#f_t", "#f_bn", "#f_d"].forEach(s => { const i = el.querySelector(s); if (i) i.oninput = i.onchange = () => { if (s === "#f_t") { bType = i.value; drawEvents(el); } sum(el); }; });
     el.querySelectorAll("[data-q]").forEach(c => c.onclick = () => { const p = el.querySelector("#f_p"); p.value = num(p.value) + num(c.dataset.q); sum(el); });
-    bind(el, "[data-add5]", () => { const c = ctx(el), feat = memsOfPool(c.name), mine = feat.find(m => S.profile.lis.includes(m.li)) || feat[0];
-      const k = compute(el); const guarNow = k.r.guar; const lastAt = Math.max(0, ...events.map(x => num(x.at)));
-      const guess = num(val(el, "#f_p")) ? Math.min(num(val(el, "#f_p")), lastAt ? lastAt + 1 : Math.max(1, Math.min(num(val(el, "#f_p")), CONFIG.hardPity - k.b.pity))) : "";
-      events.push({t: "5", at: guess, memId: c.type === "standard" ? "" : (mine ? mine.id : ""), li: mine ? mine.li : (c.lis[0] || ""), card: mine ? mine.name : "", res: guarNow || mine ? "win" : "win"}); drawEvents(el); sum(el); });
+    bind(el, "[data-add5]", () => {
+      const c = ctx(el), b = bId && bannerById(bId), k = compute(el), lastAt = Math.max(0, ...events.filter(x => x.t === "5").map(x => num(x.at)));
+      const li = (b && b.lis && b.lis.length === 1) ? b.lis[0] : (S.profile.lis[0] || "xavier"), n = num(val(el, "#f_p"));
+      const guess = n ? Math.min(n, lastAt ? Math.min(n, lastAt + CONFIG.hardPity) : Math.max(1, Math.min(n, CONFIG.hardPity - k.b.pity))) : "";
+      events.push({t: "5", at: guess, li, src: c.type === "standard" ? "std" : "lim", precise: true, memId: ""}); drawEvents(el); sum(el);
+    });
     bind(el, "[data-addm]", () => { events.push({t: "m", what: "Outfit", at: num(val(el, "#f_p")) || ""}); drawEvents(el); sum(el); });
     drawEvents(el); sum(el);
     bind(el, "[data-x]", closeModal);
@@ -538,7 +555,7 @@ function pullForm(e, presetBanner) {
       closeModal();
       act(edit ? "Saved" : `Logged ${k.n} wishes${k.results.length ? `, ${k.results.length} × 5★` : ""}`, () => {
         if (edit) Object.assign(S.entries.find(x => x.id === e.id), entry); else S.entries.push({id: uid(), ts: Date.now(), ...entry});
-        if (!edit) k.results.forEach(r => { const m = r.memId ? MEM[r.memId] : MEMORIES.find(x => x.name.toLowerCase() === String(r.card || "").toLowerCase() && (!r.li || x.li === r.li)); if (m) { const o = S.owned[m.id] || {}; S.owned[m.id] = {...o, have: true, rank: o.have ? Math.min(3, num(o.rank) + 1) : 0, want: false}; } });
+        if (!edit) k.results.forEach(r => { if (r.memId) { const o = S.owned[r.memId] || {}; S.owned[r.memId] = {...o, have: true, rank: o.have ? Math.min(3, num(o.rank) + 1) : 0, want: false}; } });
       });
     });
   };
@@ -573,7 +590,7 @@ function matchForm() {
   const B = balances();
   modal(`<h3>Match the game</h3><div class="desc">Type what the game shows now. ${CONFIG.appName} fixes the difference.</div>
     <div class="fields2"><div class="field"><label for="f_dm">Diamonds</label><input id="f_dm" type="number" inputmode="numeric"></div><div class="field"><label for="f_tk">Deepspace Wishes</label><input id="f_tk" type="number" inputmode="numeric"></div></div>
-    <div class="field"><label for="f_w">Total in wishes</label><input id="f_w" type="number" inputmode="decimal" step="any" value="${B.ds}"></div>
+    <div class="field"><label for="f_w">Total in wishes</label><input id="f_w" type="number" inputmode="decimal" step="any" value="${Math.floor(B.ds)}"></div>
     ${S.profile.trackStandard ? `<div class="field"><label for="f_emp">Empyrean Wishes</label><input id="f_emp" type="number" inputmode="numeric" value="${B.emp}"></div>` : ""}
     <div class="acts"><button class="btn" data-x>Cancel</button><button class="btn primary" data-ok>Save</button></div>`, el => {
     const w = el.querySelector("#f_w"), calc = () => { if (val(el, "#f_dm") || val(el, "#f_tk")) w.value = r2(D2W(num(val(el, "#f_dm"))) + num(val(el, "#f_tk"))); };
@@ -588,14 +605,21 @@ function matchForm() {
 }
 function pityForm(pool) {
   const pools = ["limited", "rerun", "special"].concat(S.profile.trackStandard ? ["standard"] : []);
-  modal(`<h3>Correct pity</h3><div class="desc">Count the wishes since your last 5★ in the game's wish history. Hard pity is ${CONFIG.hardPity}.</div>
+  let left = !!S.settings.pityLeft;
+  const draw = () => modal(`<h3>Correct pity</h3><div class="desc">Copy what the game shows. A 5★ is certain by wish ${CONFIG.hardPity}.</div>
+    <div class="seg full" style="margin-bottom:14px"><button type="button" data-m="0" class="${left ? "" : "on"}">Wishes since last 5★</button><button type="button" data-m="1" class="${left ? "on" : ""}">Wishes left</button></div>
     ${pools.map(p => { const st = poolState(p); return `<div class="event"><div class="head">${POOLS[p].n}<span class="sp"></span><span class="small muted" style="font-weight:500">${POOLS[p].sub}</span></div>
-      <div class="fields2"><div class="field" style="margin:0"><label for="p_${p}">Wishes since last 5★</label><input id="p_${p}" data-p="${p}" type="number" inputmode="numeric" min="0" max="${CONFIG.hardPity}" value="${st.pity}"></div>
-      ${POOLS[p].guar ? `<div class="field" style="margin:0"><label for="g_${p}">Next 5★</label><select id="g_${p}" data-g="${p}"><option value="0">50/50</option><option value="1" ${st.guar ? "selected" : ""}>Guaranteed</option></select></div>` : "<div></div>"}</div></div>`; }).join("")}
+      <div class="fields2"><div class="field" style="margin:0"><label for="p_${p}">${left ? "Wishes left" : "Wishes since last 5★"}</label><input id="p_${p}" data-p="${p}" type="number" inputmode="numeric" min="0" max="${CONFIG.hardPity}" value="${left ? CONFIG.hardPity - st.pity : st.pity}"></div>
+      ${POOLS[p].guar ? `<div class="field" style="margin:0"><label for="g_${p}">Next 5★</label><select id="g_${p}" data-g="${p}"><option value="0">50/50</option><option value="1" ${st.guar ? "selected" : ""}>Guaranteed</option></select></div>` : "<div></div>"}</div>
+      <div class="small muted" style="margin-top:6px" data-echo="${p}"></div></div>`; }).join("")}
     <div class="acts"><button class="btn" data-x>Cancel</button><button class="btn primary" data-ok>Save</button></div>`, el => {
+    const echo = () => pools.forEach(p => { const v = Math.min(CONFIG.hardPity, num(el.querySelector(`[data-p="${p}"]`).value)); el.querySelector(`[data-echo="${p}"]`).textContent = left ? `That's ${CONFIG.hardPity - v} since your last 5★.` : `That's ${CONFIG.hardPity - v} left until a sure 5★.`; });
+    el.querySelectorAll("[data-p]").forEach(i => i.oninput = echo); echo();
+    el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { left = b.dataset.m === "1"; S.settings.pityLeft = left; save(); draw(); });
     bind(el, "[data-x]", closeModal);
-    bind(el, "[data-ok]", () => { closeModal(); act("Pity saved", () => pools.forEach(p => { const st = poolState(p), np = Math.min(CONFIG.hardPity, num(el.querySelector(`[data-p="${p}"]`).value)), g = el.querySelector(`[data-g="${p}"]`), ng = g ? g.value === "1" : false; if (np !== st.pity || ng !== st.guar) S.pools[p] = {pity: np, guar: ng, ts: Date.now()}; })); });
-  });
+    bind(el, "[data-ok]", () => { closeModal(); act("Pity saved", () => pools.forEach(p => { const st = poolState(p), v = Math.min(CONFIG.hardPity, num(el.querySelector(`[data-p="${p}"]`).value)), np = left ? CONFIG.hardPity - v : v, g = el.querySelector(`[data-g="${p}"]`), ng = g ? g.value === "1" : false; if (np !== st.pity || ng !== st.guar) S.pools[p] = {pity: np, guar: ng, ts: Date.now()}; })); });
+  }, !!$("#scrim"));
+  draw();
 }
 
 /* ---------- shop ---------- */
@@ -635,7 +659,6 @@ function buyForm(p, presetBanner) {
     ${yearlyClosed ? `<div class="note" style="margin-bottom:12px">Yearly passes are only sold at the start of the year. Use this to record one you bought.</div>` : ""}
     <div class="fields2">${oneOnly ? "" : `<div class="field"><label>How many</label><div class="stepper"><button type="button" data-m aria-label="Fewer">−</button><span class="q" id="qv">1</span><button type="button" data-p aria-label="More">+</button></div></div>`}
     <div class="field"><label for="f_pr">Price (${sym()})</label><input id="f_pr" type="number" inputmode="decimal" step="0.01" value="${p.price ?? ""}" placeholder="Price in game"></div></div>
-    ${isPool && live.length ? `<div class="field"><label for="f_bn">For which wish pool</label><select id="f_bn"><option value="">Not for a pool</option>${live.map(b => `<option value="${b.id}" ${b.id === guess ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></div>` : ""}
     <div class="summary" id="sum"></div>
     ${dateField(today())}
     <button class="btn primary" style="width:100%" data-ok>Buy now</button>
@@ -746,18 +769,19 @@ function planForm(p) {
 }
 
 /* ---------- cards ---------- */
+const MEMTYPE = {myth: ["Myth", "y"], solo: ["Solo", "r"], multi: ["Multi", "bl"], bday: ["Birthday", "g"], special: ["Special", "bl"], permanent: ["Xspace Echo", ""], event: ["Event", ""]};
+function memType(m) { if (m.kind === "permanent") return "permanent"; const b = BANNERS.find(x => x.name === m.src && !x.rerun); return b ? b.type : "event"; }
 function memRow(m) {
-  const o = S.owned[m.id] || {}, l = liOf(m.li), b = BANNERS.find(x => x.name === m.src && !x.rerun);
-  const src = m.kind === "permanent" ? "Xspace Echo" : `${m.src}${b ? ` (${typeName(b.type)}, ${yearOf(b)})` : ""}`;
-  return `<div class="mem" style="--c:${l.c}"><span class="stripe"></span><div class="main"><div class="t">${esc(m.name)}</div><div class="s">${l.n}, ${esc(src)}</div></div>
-    ${o.have ? `<select class="rank" data-rank="${m.id}" aria-label="Rank">${[0, 1, 2, 3].map(r => `<option value="${r}" ${num(o.rank) === r ? "selected" : ""}>R${r}</option>`).join("")}</select>` : ""}
-    <button class="tog ${o.have ? "have" : ""}" data-have="${m.id}" aria-pressed="${!!o.have}">${o.have ? "Have" : "Have?"}</button>
-    ${o.have ? "" : `<button class="tog ${o.want ? "want" : ""}" data-want="${m.id}" aria-pressed="${!!o.want}">Want</button>`}</div>`;
+  const o = S.owned[m.id] || {}, l = liOf(m.li), b = BANNERS.find(x => x.name === m.src && !x.rerun), t = MEMTYPE[memType(m)];
+  return `<div class="mtile ${o.have ? "have" : ""}" style="--c:${l.c}"><div class="mtop"><span class="badge ${t[1]}">${t[0]}</span>${o.have ? `<button class="rankc" data-rankc="${m.id}" aria-label="Rank, tap to change">R${num(o.rank)}</button>` : ""}</div>
+    <div class="mname">${esc(m.name)}</div><div class="msrc">${l.n}${m.kind === "permanent" ? "" : `, ${esc(m.src)}${b ? ` ${yearOf(b)}` : ""}`}</div>
+    <div class="mbtns"><button class="tog ${o.have ? "have" : ""}" data-have="${m.id}" aria-pressed="${!!o.have}">${o.have ? "Have" : "Have?"}</button>${o.have ? "" : `<button class="tog ${o.want ? "want" : ""}" data-want="${m.id}" aria-pressed="${!!o.want}">Want</button>`}</div></div>`;
 }
 function wireMemToggles(el, redraw) {
-  el.querySelectorAll("[data-have]").forEach(b => b.onclick = () => { const id = b.dataset.have; const o = S.owned[id] || {}; S.owned[id] = {...o, have: !o.have, want: o.have ? o.want : false}; S.updatedAt = Date.now(); save(); queuePush(); redraw ? redraw() : render(); });
-  el.querySelectorAll("[data-want]").forEach(b => b.onclick = () => { const id = b.dataset.want; const o = S.owned[id] || {}; S.owned[id] = {...o, want: !o.want}; S.updatedAt = Date.now(); save(); queuePush(); redraw ? redraw() : render(); });
-  el.querySelectorAll("[data-rank]").forEach(s => s.onchange = () => { const id = s.dataset.rank; S.owned[id] = {...(S.owned[id] || {}), rank: +s.value}; S.updatedAt = Date.now(); save(); queuePush(); });
+  const done = () => { S.updatedAt = Date.now(); save(); queuePush(); redraw ? redraw() : render(); };
+  el.querySelectorAll("[data-have]").forEach(b => b.onclick = () => { const id = b.dataset.have, o = S.owned[id] || {}; S.owned[id] = {...o, have: !o.have, want: o.have ? o.want : false}; done(); });
+  el.querySelectorAll("[data-want]").forEach(b => b.onclick = () => { const id = b.dataset.want, o = S.owned[id] || {}; S.owned[id] = {...o, want: !o.want}; done(); });
+  el.querySelectorAll("[data-rankc]").forEach(b => b.onclick = () => { const id = b.dataset.rankc, o = S.owned[id] || {}; S.owned[id] = {...o, rank: (num(o.rank) + 1) % 4}; done(); });
 }
 function viewCards() {
   const q = colQuery.trim().toLowerCase();
@@ -768,13 +792,14 @@ function viewCards() {
   if (colView === "pool") {
     const pools = BANNERS.filter(b => !b.rerun && memsOfPool(b.name).some(pass)).sort((a, z) => z.start.localeCompare(a.start));
     const extraSrc = [...new Set(list.filter(m => !BANNERS.some(b => b.name === m.src)).map(m => m.src))];
-    body = pools.map(b => `<div class="panel" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:10px;padding:12px 0 4px">${avatars(b.lis)}<div><div style="font-weight:700">${esc(b.name)}</div><div class="small muted">${typeName(b.type)}, ${fmtDate(b.start)}</div></div></div>${memsOfPool(b.name).filter(pass).map(memRow).join("")}</div>`).join("")
-      + extraSrc.map(s => `<div class="panel" style="margin-bottom:10px"><div style="font-weight:700;padding:12px 0 4px">${esc(s)}</div>${list.filter(m => m.src === s).map(memRow).join("")}</div>`).join("");
-  } else body = `<div class="panel">${list.map(memRow).join("")}</div>`;
+    body = pools.map(b => `<div class="panel" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:10px;padding:12px 0 4px">${avatars(b.lis)}<div><div style="font-weight:700">${esc(b.name)}</div><div class="small muted">${typeName(b.type)}, ${fmtDate(b.start)}</div></div></div><div class="mgrid" style="padding:8px 0 14px">${memsOfPool(b.name).filter(pass).map(memRow).join("")}</div></div>`).join("")
+      + extraSrc.map(s => `<div class="panel" style="margin-bottom:10px"><div style="font-weight:700;padding:12px 0 4px">${esc(s)}</div><div class="mgrid" style="padding:8px 0 14px">${list.filter(m => m.src === s).map(memRow).join("")}</div></div>`).join("");
+  } else body = `<div class="mgrid">${list.map(memRow).join("")}</div>`;
   return `<div class="lirow" style="margin:4px 0 14px">${lisShown.map(k => `<button class="lichip ${colLi === k ? "on" : ""}" style="--c:${liOf(k).c}" data-colli="${k}">${avatar(k, true)}<span>${liOf(k).n}</span></button>`).join("")}
       <button class="lichip ${colLi === "all" ? "on" : ""}" style="--c:var(--gold)" data-colli="all"><span class="av lg" style="--c:#2b2a63">✦</span><span>Everyone</span></button></div>
     <p style="margin:0 2px 12px;font:400 18px var(--display)">You have ${own} of ${total} 5★ Memories${colLi !== "all" ? ` for ${liOf(colLi).n}` : ""}</p>
-    <div class="toolbar"><div class="seg">${[["li", "List"], ["pool", "By wish pool"]].map(([k, l]) => `<button class="${colView === k ? "on" : ""}" data-colv="${k}">${l}</button>`).join("")}</div>
+    <div class="chips" style="margin:-6px 2px 12px;gap:4px">${["myth", "solo", "multi", "bday", "permanent", "event"].map(k => `<span class="badge ${MEMTYPE[k][1]}">${MEMTYPE[k][0]}</span>`).join(" ")}</div>
+    <div class="toolbar"><div class="seg">${[["li", "All cards"], ["pool", "By banner"]].map(([k, l]) => `<button class="${colView === k ? "on" : ""}" data-colv="${k}">${l}</button>`).join("")}</div>
       <div class="seg">${[["all", "All"], ["have", "Have"], ["want", "Want"], ["missing", "Missing"]].map(([k, l]) => `<button class="${colFilter === k ? "on" : ""}" data-colf="${k}">${l}</button>`).join("")}</div>
       <input class="search" id="cq" placeholder="Search Memories" value="${esc(colQuery)}"></div>
     ${list.length ? body : `<div class="panel pad muted">Nothing here.</div>`}
@@ -952,13 +977,13 @@ function estimateForm() {
 
 /* ---------- first-time setup ---------- */
 function wizard(skipWelcome) {
-  const d = {currency: S.profile.currency, lis: [...S.profile.lis], std: S.profile.trackStandard, dia: "", tk: "", wishes: S.entries.length ? balances().ds : "", emp: S.entries.length ? balances().emp : "",
+  const d = {currency: S.profile.currency, lis: [...S.profile.lis], std: S.profile.trackStandard, dia: "", tk: "", wishes: S.entries.length ? Math.floor(balances().ds) : "", emp: S.entries.length ? balances().emp : "",
     pools: Object.fromEntries(Object.keys(POOLS).map(p => [p, {...poolState(p), left: false}])), auto: S.settings.autoIncome, aurum: S.passes.aurum && S.passes.aurum >= today() ? daysBetween(today(), S.passes.aurum) : "",
     y: {ydiamond: !!S.passes.ydiamond, ywish: !!S.passes.ywish, ygrowth: !!S.passes.ygrowth}, budget: S.settings.budget || ""};
   let step = skipWelcome ? 1 : 0; const N = 5;
   const body = () => {
     if (step === 0) return `<div style="text-align:center;padding:10px 0 4px"><div style="width:64px;margin:0 auto 12px">${LOGO}</div><h3 style="font-size:28px">${CONFIG.appName}</h3>
-      <p class="muted" style="margin:6px 0 18px">${CONFIG.tagline}. Wishes, pity, spending and Memories for Love and Deepspace, all in one place.</p></div>
+      <p class="muted" style="margin:6px 0 18px">Track your Love and Deepspace wishes, pity, spending and Memories in one place.</p></div>
       <button class="btn primary" style="width:100%" data-next>Set up</button>
       <div class="acts">${syncOn() ? `<button class="btn" data-code>I have a sync code</button>` : ""}<button class="btn" data-restore>Load a backup file</button></div>`;
     if (step === 1) return `<h3>Who do you play for?</h3><div class="desc">Pick one or all five. The first one is your main.</div>
@@ -998,7 +1023,7 @@ function wizard(skipWelcome) {
     if (num(d.aurum) > 0) S.passes.aurum = addDays(today(), num(d.aurum)); else delete S.passes.aurum;
     Object.entries(d.y).forEach(([k, on]) => { if (on) S.passes[k] = YEARLY.end; else delete S.passes[k]; });
     if (Object.values(d.y).every(Boolean)) S.passes.ybonus = YEARLY.end; else delete S.passes.ybonus;
-    S.income.lastRun = today(); S.setupDone = true;
+    S.income.lastRun = today(); S.setupDone = true; if (d.lis.length === 1) colLi = d.lis[0];
   }, false);
   const draw = () => modal(`${step ? `<div class="steps">${Array.from({length: N - 1}, (_, i) => `<i class="${i < step ? "on" : ""}"></i>`).join("")}</div>` : ""}${body()}
       ${step ? `<div class="acts" style="margin-top:16px"><button class="btn" data-back>Back</button><button class="btn primary" data-next>${step === N - 1 ? "Done" : "Next"}</button></div>` : ""}`, (el, scrim) => {
@@ -1046,7 +1071,7 @@ function render() {
   const titles = {home: CONFIG.appName, banners: "Wish pools", shop: "Shop", cards: "Memories", history: "History", settings: "Settings"};
   const dark = document.documentElement.dataset.theme === "dark";
   $("#app").innerHTML = `<header class="top"><div class="brand">${LOGO}<h1>${titles[tab]}</h1></div>
-      ${tab !== "home" ? `<button class="iconbtn" data-go="home" aria-label="Wishes">${fmtW(balances().ds)} ✦</button>` : ""}
+      ${tab !== "home" ? `<button class="iconbtn" data-go="home" aria-label="Wishes">${fmtWB(balances().ds)} ✦</button>` : ""}
       <button class="iconbtn" data-act="theme" aria-label="Switch light or dark">${icon(dark ? "sun" : "moon")}</button>
       <button class="iconbtn" data-go="settings" aria-label="Settings">${icon("gear")}</button></header>
     ${storageOK ? "" : `<div class="warn">This browser isn't saving your data. Save a backup file from Settings to keep a copy.</div>`}

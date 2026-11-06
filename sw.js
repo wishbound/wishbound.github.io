@@ -1,5 +1,5 @@
 /* Wishbound offline support. Bump VERSION whenever app files change so phones get the update. */
-const VERSION = "wishbound-3.0.0";
+const VERSION = "wishbound-3.1.0";
 const FILES = ["./", "index.html", "css/style.css", "js/data.js", "js/catalog.js", "js/app.js", "manifest.webmanifest", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {
