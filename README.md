@@ -14,14 +14,14 @@ Made by [@pookieleb](https://x.com/pookieleb).
 - Every wish pool since launch and every 5★ Memory, with Have and Want for each
 - Works offline, installs to your home screen, dark mode, backup files, CSV export
 
-Your data stays in your own browser unless you turn on sync.
+Your data stays on your own device. Nothing is sent anywhere.
 
 ## Files
 
 - `js/catalog.js` holds the wish pools and Memories. Add new pools here.
 - `js/data.js` holds prices, daily income amounts, yearly pass dates and sync settings.
-- `assets/` can hold shared pictures (see `assets/README.md`).
-- `supabase/setup.sql` sets up the sync database.
+- `assets/` holds the shared pictures (see `assets/README.md`).
+- `supabase/setup.sql` is for an optional sync feature that isn't switched on yet.
 
 ## Disclaimer
 
