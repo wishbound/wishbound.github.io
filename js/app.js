@@ -1069,13 +1069,27 @@ function exportCSV() {
   download(`wishbound-${today()}.csv`, "﻿" + rows.join("\n"), "text/csv"); toast("Saved the CSV file");
 }
 function restoreBackup() {
-  const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json,application/json";
-  inp.onchange = () => { const f = inp.files[0]; if (!f) return; const rd = new FileReader();
-    rd.onload = () => { let d; try { d = JSON.parse(rd.result); } catch (e) { return toast("That file isn't a Wishbound backup"); }
-      if (!Array.isArray(d.entries)) return toast("That file isn't a Wishbound backup");
-      const go = () => { closeModal(); act("Backup loaded", () => { const sync = S.sync; S = normalise(d); S.sync = sync; }); if (!S.setupDone) setTimeout(() => wizard(true), 250); };
-      if (S.entries.length) confirmBox("Load this backup?", `It has ${d.entries.length} entries and replaces everything on this device.`, "Load it", go); else go(); };
-    rd.readAsText(f); };
+  // iPad and iPhone only report the chosen file if the picker is part of the page, so attach it first.
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+  document.body.appendChild(inp);
+  let done = false;
+  const handle = () => {
+    if (done) return; const f = inp.files && inp.files[0]; if (!f) return; done = true;
+    const rd = new FileReader();
+    rd.onerror = () => { toast("Couldn't read that file. Try saving it to Files again."); inp.remove(); };
+    rd.onload = () => {
+      inp.remove();
+      let d; try { d = JSON.parse(String(rd.result).replace(/^\uFEFF/, "")); } catch (e) { return toast("That file isn't a Wishbound backup"); }
+      if (!d || !Array.isArray(d.entries)) return toast("That file isn't a Wishbound backup");
+      const go = () => { closeModal(); act("Backup loaded", () => { const sync = S.sync; S = normalise(d); S.sync = sync; }); tab = "home"; render(); if (!S.setupDone) setTimeout(() => wizard(true), 250); };
+      if (S.entries.length) confirmBox("Load this backup?", `It has ${d.entries.length} entries and replaces everything on this device.`, "Load it", go); else go();
+    };
+    rd.readAsText(f);
+  };
+  inp.addEventListener("change", handle);
+  inp.addEventListener("input", handle);
   inp.click();
 }
 
