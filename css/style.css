@@ -258,3 +258,6 @@ footer.credit .name{font:400 16px var(--display);color:var(--text)}
 .rows li[data-banner] .avs .av+.av{margin-left:-14px}
 
 .sumrow{display:inline-flex;align-items:baseline;gap:10px;width:calc(100% - 26px);vertical-align:middle}
+.xclose{position:sticky;top:0;float:right;z-index:3;width:34px;height:34px;margin:-10px -6px -40px 10px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.xclose:hover{color:var(--text);background:var(--raise)}
+.scrim[data-lock] .xclose{display:none}

@@ -264,11 +264,12 @@ function toast(t, withUndo) {
 }
 function modal(html, onMount, reuse) {
   const ex = $("#scrim");
-  if (reuse && ex) { const sh = ex.firstChild; sh.innerHTML = html; sh.scrollTop = 0; onMount && onMount(sh, ex); return; }
+  if (reuse && ex) { const sh = ex.firstChild; sh.querySelector(".sheet-in").innerHTML = html; sh.scrollTop = 0; onMount && onMount(sh, ex); return; }
   closeModal();
   const s = document.createElement("div"); s.className = "scrim"; s.id = "scrim";
-  s.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  s.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><button type="button" class="xclose" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="sheet-in">${html}</div></div>`;
   s.addEventListener("click", e => { if (e.target === s && !s.dataset.lock) closeModal(); });
+  s.querySelector(".xclose").onclick = closeModal;
   document.body.appendChild(s);
   onMount && onMount(s.firstChild, s);
 }
