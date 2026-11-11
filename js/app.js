@@ -314,20 +314,26 @@ function ringSVG(p, soft) {
 function viewHome() {
   const B = balances(), lim = poolState("limited"), rr = poolState("rerun"), T = totals(), m = thisMonth(), sm = spentIn(m), bud = num(S.settings.budget);
   const img = S.images.header || ASSET.header, cur = bannersBy("current");
-  return `<section class="hero ${img ? "photo" : ""}" style="${img ? `background-image:url('${img}')` : ""}">
-    <div class="ringwrap">
-      <button class="ring" data-pity="limited" aria-label="Limited pity ${lim.pity} of ${CONFIG.hardPity}. Tap to correct.">${ringSVG(lim.pity, lim.pity >= CONFIG.softPity)}
-        <span class="in"><span class="num">${fmtWB(B.ds)}</span><span class="lab">wishes</span></span></button>
-      <div class="herofacts">
-        <div class="fact"><b>${lim.pity} <span style="font-size:14px;opacity:.7">pulled, ${CONFIG.hardPity - lim.pity} to go</span></b>limited pity, ${lim.guar ? "next 5★ guaranteed" : "next 5★ is 50/50"}</div>
-        <div class="fact"><b>${rr.pity} <span style="font-size:14px;opacity:.7">pulled, ${CONFIG.hardPity - rr.pity} to go</span></b>rerun pity${rr.guar ? ", guaranteed" : ""}</div>
-        ${S.profile.trackStandard ? `<div class="fact"><b>${fmtWB(B.emp)}</b>Empyrean Wishes</div>` : `<div class="fact"><b class="g">${fmtM(sm)}</b>spent this month</div>`}
-      </div></div>
+  const left = !!S.settings.pityLeft, H = CONFIG.hardPity;
+  const pstat = (k, st, label) => `<button class="hstat" data-pity="${k}" aria-label="${label}, tap to correct">
+      <span class="k">${label}</span>
+      <span class="v">${left ? H - st.pity : st.pity}<small>${left ? " left" : ` / ${H}`}</small></span>
+      <span class="pbar"><i class="${st.pity >= CONFIG.softPity ? "soft" : ""}" style="width:${Math.min(100, st.pity / H * 100)}%"></i></span>
+      <span class="h">${st.guar ? "Next 5★ guaranteed" : k === "limited" ? "Next 5★ is 50/50" : `${H - st.pity} to hard pity`}</span></button>`;
+  return `<section class="hero">
+    ${img ? `<div class="hbg" style="background-image:url('${img}')"></div>` : ""}
+    <div class="htop">
+      <div class="hbal"><span class="k">Wishes to spend</span><span class="big">${fmtWB(B.ds)}</span>
+        <span class="h">${S.profile.trackStandard ? `${fmtWB(B.emp)} Empyrean Wishes` : `${fmtM(sm)} spent in ${MONTHS[+m.slice(5) - 1]}`}</span></div>
+      <button class="ring" data-pity="limited" aria-label="Limited pity ${lim.pity} of ${H}. Tap to correct.">${ringSVG(lim.pity, lim.pity >= CONFIG.softPity)}
+        <span class="in"><span class="num">${left ? H - lim.pity : lim.pity}</span><span class="lab">${left ? "to 5★" : "pity"}</span></span></button>
+    </div>
+    <div class="hstats">${pstat("limited", lim, "Limited pity")}${pstat("rerun", rr, "Rerun pity")}</div>
     <div class="heroacts">
-      <button class="main" data-act="pull">${icon("pull")}Log wishes</button>
-      <button data-go="shop">${icon("bag")}Buy</button>
-      <button data-act="gain">${icon("gift")}Free wishes</button>
-      <button data-act="match">${icon("eq")}Match game</button>
+      <button class="main" data-act="pull">${icon("pull")}<span>Log wishes</span></button>
+      <button data-go="shop">${icon("bag")}<span>Buy</span></button>
+      <button data-act="gain">${icon("gift")}<span>Free wishes</span></button>
+      <button data-act="match">${icon("eq")}<span>Match game</span></button>
     </div></section>
   <h2 class="sec">In the wish pool now<span class="sp"></span><button class="act" data-go="banners">All pools</button></h2>
   ${cur.length ? `<div class="panel"><ul class="rows">${cur.map(bannerRow).join("")}</ul></div>` : `<div class="panel pad muted">No wish pool is running right now.</div>`}
@@ -450,29 +456,41 @@ function pullForm(e, presetBanner) {
     .sort((a, b) => (bannerStatus(b) === "current") - (bannerStatus(a) === "current") || (b.start || "").localeCompare(a.start || ""));
   const ctx = el => {
     if (kind === "standard") return {type: "standard", rerun: false, name: "Xspace Echo", id: ""};
-    const b = bId && bannerById(bId), t = el.querySelector("#f_t") ? val(el, "#f_t") : (b ? b.type : "solo");
-    if (b) return {type: t, rerun: !!b.rerun, name: b.name, id: b.id};
-    return {type: t, rerun: kind === "rerun", name: val(el, "#f_bn").trim() || typeName(t) + " pool", id: ""};
+    const b = bId && bannerById(bId);
+    if (b) return {type: b.type, rerun: !!b.rerun, name: b.name, id: b.id};
+    return {type: bType || "solo", rerun: kind === "rerun", name: (e && e.bannerName) || typeName(bType || "solo") + " pool", id: ""};
+  };
+  const optLabel = b => {
+    const who = b.lis && b.lis.length === 1 ? (liOf(b.lis[0])?.n || "") + ", " : "";
+    const when = bannerStatus(b) === "current" ? "current" : (b.start ? fmtMonth(b.start.slice(0, 7)) : "");
+    return `${b.name} (${who}${when})`;
   };
   const isMulti = t => t === "multi" || t === "special";
+  let pv = e ? e.pulls : "", nv = e?.note || "", dv = e ? e.date : today();
   const draw = () => {
-    const list = listFor(kind);
-    if (kind !== "standard" && bId && !list.some(b => b.id === bId)) bId = "";
-    if (kind !== "standard" && !bId && list.length && !e) bId = list[0].id;
-    const cur = bId && bannerById(bId); if (cur && !bType) bType = cur.type;
+    const open = document.querySelector(".sheet #f_p");
+    if (open) { const sh = open.closest(".sheet"); pv = val(sh, "#f_p"); nv = val(sh, "#f_n"); dv = val(sh, "#f_d") || dv; }
+    const all = listFor(kind), legacy = e && !e.bannerId && kind !== "standard";
+    const types = BANNER_TYPES.filter(t => all.some(b => b.type === t.k));
+    const cur = bId && bannerById(bId);
+    if (cur) bType = cur.type;
+    if (!types.some(t => t.k === bType) && !legacy) bType = types[0] ? types[0].k : "";
+    const list = all.filter(b => b.type === bType);
+    if (bId && !list.some(b => b.id === bId)) bId = "";
+    if (!bId && !legacy && list.length) bId = list[0].id;
     modal(`<h3>${edit ? "Edit wishes" : "Log wishes"}</h3>
-      <div class="seg full" style="margin:6px 0 14px">${[["limited", "Limited"], ["rerun", "Rerun"], ["standard", "Standard"]].map(([k, n]) => `<button type="button" data-kind="${k}" class="${kind === k ? "on" : ""}">${n}</button>`).join("")}</div>
-      ${kind !== "standard" ? `<div class="field"><label for="f_b">Banner</label><select id="f_b">${list.map(b => `<option value="${b.id}" ${b.id === bId ? "selected" : ""}>${esc(b.name)}${bannerStatus(b) === "current" ? " (current)" : ""}</option>`).join("")}<option value="" ${!bId ? "selected" : ""}>Another banner…</option></select></div>
-      <div class="field" id="otherName" ${bId ? "hidden" : ""}><label for="f_bn">Banner name</label><input id="f_bn" value="${esc(e && !e.bannerId ? e.bannerName : "")}"></div>
-      <div class="field"><label for="f_t">Type</label><select id="f_t">${BANNER_TYPES.map(t => `<option value="${t.k}" ${(bType || "solo") === t.k ? "selected" : ""}>${t.n}</option>`).join("")}</select></div>`
+      <div class="seg full" style="margin:6px 0 16px">${[["limited", "Limited"], ["rerun", "Rerun"], ["standard", "Standard"]].map(([k, n]) => `<button type="button" data-kind="${k}" class="${kind === k ? "on" : ""}">${n}</button>`).join("")}</div>
+      ${kind !== "standard" ? `<div class="fields2 wide1">
+        <div class="field"><label for="f_t">Type</label><select id="f_t">${types.map(t => `<option value="${t.k}" ${bType === t.k ? "selected" : ""}>${t.n}</option>`).join("")}</select></div>
+        <div class="field"><label for="f_b">Banner</label><select id="f_b">${legacy ? `<option value="" ${!bId ? "selected" : ""}>${esc(e.bannerName || "Old entry")}</option>` : ""}${list.map(b => `<option value="${b.id}" ${b.id === bId ? "selected" : ""}>${esc(optLabel(b))}</option>`).join("")}</select></div></div>`
       : `<p class="small muted" style="margin-top:0">Xspace Echo, the standard pool. Uses Empyrean Wishes and its own pity.</p>`}
-      <div class="field"><label for="f_p">How many wishes did you use?</label><input id="f_p" type="number" inputmode="numeric" min="1" value="${e ? e.pulls : ""}" placeholder="e.g. 80"></div>
+      <div class="field"><label for="f_p">How many wishes did you use?</label><input id="f_p" type="number" inputmode="numeric" min="1" value="${esc(pv)}" placeholder="e.g. 80"></div>
       <div class="chips" style="margin:-6px 0 16px">${[1, 10, 20, 50].map(n => `<button type="button" class="chip" data-q="${n}">+${n}</button>`).join("")}</div>
       <div class="lbl" style="margin-bottom:8px">What did you get?</div><div id="ev"></div>
       <div class="chips" style="margin-bottom:14px"><button type="button" class="chip" data-add5>+ 5★</button><button type="button" class="chip" data-addm>+ Outfit or reward</button></div>
       <div class="summary" id="sum"></div>
-      ${dateField(e ? e.date : today())}
-      <div class="field"><label for="f_n">Note</label><input id="f_n" value="${esc(e?.note || "")}" placeholder="Optional"></div>
+      ${dateField(dv)}
+      <div class="field"><label for="f_n">Note</label><input id="f_n" value="${esc(nv)}" placeholder="Optional"></div>
       <div class="acts">${edit ? `<button class="btn danger" data-del>Delete</button>` : `<button class="btn" data-x>Cancel</button>`}<button class="btn primary" data-ok>Save</button></div>`, el => mount(el), true);
   };
   const outcomeOf = (x, c, guar) => {
@@ -532,8 +550,10 @@ function pullForm(e, presetBanner) {
     wireDate(el);
     el.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { kind = b.dataset.kind; bId = ""; bType = ""; events = events.filter(x => x.t === "m"); draw(); });
     const sel = el.querySelector("#f_b");
-    if (sel) sel.onchange = () => { bId = sel.value; const b = bId && bannerById(bId); bType = b ? b.type : val(el, "#f_t"); draw(); };
-    ["#f_p", "#f_t", "#f_bn", "#f_d"].forEach(s => { const i = el.querySelector(s); if (i) i.oninput = i.onchange = () => { if (s === "#f_t") { bType = i.value; drawEvents(el); } sum(el); }; });
+    if (sel) sel.onchange = () => { bId = sel.value; events.forEach(x => x.memId = ""); draw(); };
+    const ts = el.querySelector("#f_t");
+    if (ts) ts.onchange = () => { bType = ts.value; bId = ""; events.forEach(x => x.memId = ""); draw(); };
+    ["#f_p", "#f_d"].forEach(s => { const i = el.querySelector(s); if (i) i.oninput = i.onchange = () => sum(el); });
     el.querySelectorAll("[data-q]").forEach(c => c.onclick = () => { const p = el.querySelector("#f_p"); p.value = num(p.value) + num(c.dataset.q); sum(el); });
     bind(el, "[data-add5]", () => {
       const c = ctx(el), b = bId && bannerById(bId), k = compute(el), lastAt = Math.max(0, ...events.filter(x => x.t === "5").map(x => num(x.at)));
@@ -1076,7 +1096,7 @@ function render() {
       <button class="iconbtn" data-go="settings" aria-label="Settings">${icon("gear")}</button></header>
     ${storageOK ? "" : `<div class="warn">This browser isn't saving your data. Save a backup file from Settings to keep a copy.</div>`}
     ${views[tab]()}${footer()}`;
-  $("#tabs").innerHTML = TABS.map(([k, ic, l]) => `<button class="${tab === k ? "on" : ""}" data-go="${k}" aria-current="${tab === k ? "page" : "false"}">${icon(ic)}${l}</button>`).join("");
+  $("#tabs").innerHTML = `<div class="navbrand">${LOGO.replace(/"lg"/g, '"lg2"').replace(/#lg\)/g, "#lg2)")}<span>${CONFIG.appName}</span></div>` + TABS.map(([k, ic, l]) => `<button class="${tab === k ? "on" : ""}" data-go="${k}" aria-current="${tab === k ? "page" : "false"}">${icon(ic)}${l}</button>`).join("");
   const hq = $("#hq"); if (hq) hq.oninput = e => { histQuery = e.target.value; const p = e.target.selectionStart; render(); const n = $("#hq"); n.focus(); n.setSelectionRange(p, p); };
   const cq = $("#cq"); if (cq) cq.oninput = e => { colQuery = e.target.value; const p = e.target.selectionStart; render(); const n = $("#cq"); n.focus(); n.setSelectionRange(p, p); };
   if (tab === "cards") wireMemToggles($("#app"));

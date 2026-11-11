@@ -11,7 +11,7 @@ const CONFIG = {
   hardPity: 70,
   softPity: 60,
   diamondsPerWish: 150,
-  version: "3.2.0",
+  version: "3.3.0",
   // Sync between devices (Supabase). Leave empty until the database is set up.
   syncUrl: "",
   syncKey: ""
