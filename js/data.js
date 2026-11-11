@@ -6,7 +6,7 @@ const CONFIG = {
   tagline: "",
   author: "@pookieleb",
   authorUrl: "https://x.com/pookieleb",
-  githubUrl: "https://github.com/Myouipingu/wishbound",
+  githubUrl: "https://github.com/wishbound/wishbound.github.io",
   kofiUrl: "",              // add a Ko-fi / Buy Me a Coffee link to show a support button
   hardPity: 70,
   softPity: 60,

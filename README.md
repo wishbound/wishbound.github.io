@@ -29,5 +29,5 @@ Wishbound is fan-made. It is not affiliated with or endorsed by Infold Games or 
 
 ## Copyright
 
-© 2026 @pookieleb (GitHub: Myouipingu). All rights reserved.
+© 2026 @pookieleb (GitHub: wishbound). All rights reserved.
 The code is public so the site can be hosted, but it is not open source. Please don't copy, re-host or publish it as your own. Ask first if you'd like to use part of it.
