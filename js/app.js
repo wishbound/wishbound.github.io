@@ -890,7 +890,7 @@ function viewHistory() {
     <div class="tile"><div class="k">Average pity for a 5★</div><div class="v">${L.n ? L.avg.toFixed(1) : "–"}</div><div class="h">${plural(L.n, "5★")} logged</div></div>
     <div class="tile"><div class="k">50/50 record</div><div class="v">${L.wins + L.lost ? `${L.wins} won, ${L.lost} lost` : "–"}</div><div class="h">guaranteed pulls not counted</div></div>
     <div class="tile"><div class="k">Wishes used</div><div class="v">${fmtW(totals().used)}</div><div class="h">${fmtW(L.extra)} were extras</div></div>
-    <div class="tile"><div class="k">Free wishes</div><div class="v">${fmtW(S.entries.filter(e => e.kind === "gain").reduce((s, e) => s + num(e.wishes), 0))}</div><div class="h">from playing</div></div></div>
+    <div class="tile"><div class="k">Free wishes</div><div class="v">${fmtW(S.entries.filter(e => e.kind === "gain" && e.source !== "Wishes from packs").reduce((s, e) => s + num(e.wishes), 0))}</div><div class="h">from playing</div></div></div>
   <div class="toolbar" style="margin-top:16px"><div class="seg">${[["all", "All"], ["pull", "Wishes"], ["purchase", "Bought"], ["gain", "Free"]].map(([k, l]) => `<button class="${histFilter === k ? "on" : ""}" data-hf="${k}">${l}</button>`).join("")}</div>
     <input class="search" id="hq" placeholder="Search, e.g. Caleb" value="${esc(histQuery)}"></div>
   ${Object.keys(byM).length ? Object.entries(byM).map(([m, es]) => `<h2 class="sec">${fmtMonth(m)}</h2><div class="panel"><ul class="rows">${es.map(feedItem).join("")}</ul></div>`).join("") : `<div class="panel pad muted">Nothing matches.</div>`}
