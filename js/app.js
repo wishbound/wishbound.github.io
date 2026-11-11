@@ -28,7 +28,10 @@ const liOf = k => LIS.find(l => l.k === k);
 const typeName = k => (BANNER_TYPES.find(t => t.k === k) || {n: k === "standard" ? "Xspace Echo" : "Wish pool"}).n;
 const D2W = d => r2(d / CONFIG.diamondsPerWish);
 const val = (el, sel) => el.querySelector(sel).value;
-const plural = (n, w) => `${fmtW(n)} ${w}${Math.abs(n) === 1 ? "" : "s"}`;
+const VIA = ["Google Play", "App Store", "LADS website", "Other"];
+const entryWhen = e => e.approx ? fmtMonth(e.date.slice(0, 7)) : fmtDate(e.date, true);
+const viaSelect = v => `<div class="field"><label for="f_via">Paid through</label><select id="f_via">${VIA.map(x => `<option ${x === v ? "selected" : ""}>${x}</option>`).join("")}</select></div>`;
+const plural = (n, w) => `${fmtW(n)} ${w}${Math.abs(n) === 1 ? "" : /(sh|ch|s|x)$/.test(w) ? "es" : "s"}`;
 
 const IC = {
   home: '<path d="M12 3l2.4 6.1L21 12l-6.6 2.9L12 21l-2.4-6.1L3 12l6.6-2.9z"/>',
@@ -345,9 +348,17 @@ function viewHome() {
   <h2 class="sec">Recent<span class="sp"></span><button class="act" data-go="history">History</button></h2>
   <div class="panel">${S.entries.length ? `<ul class="rows">${ordered().reverse().slice(0, 6).map(feedItem).join("")}</ul>` : `<div class="empty">Nothing logged yet. Start with “Log wishes” after your next pulls.</div>`}</div>`;
 }
+function bannerWhen(b) {
+  const st = bannerStatus(b);
+  if (b.approx) return st === "past" && b.start ? `${fmtMonth(b.start.slice(0, 7))}, length to confirm` : "dates to confirm";
+  const days = b.start && b.end ? daysBetween(b.start, b.end) + 1 : 0;
+  if (st === "past") return [b.start ? fmtMonth(b.start.slice(0, 7)) : "", days ? `ran ${plural(days, "day")}` : ""].filter(Boolean).join(", ");
+  if (st === "current") return b.end ? `ends ${fmtDate(b.end, true)}, ${plural(Math.max(0, daysBetween(today(), b.end)), "day")} left` : "running now";
+  return fmtRange(b.start, b.end);
+}
 function bannerRow(b) {
   const st = bannerStats(b), pl = planFor(b), feat = memsOfPool(b.name);
-  const sub = [bannerKind(b), b.approx ? "dates to confirm" : fmtRange(b.start, b.end)].filter(Boolean).join(", ");
+  const sub = [bannerKind(b), bannerWhen(b)].filter(Boolean).join(", ");
   return `<li data-banner="${b.id}">${avatars(b.lis)}<div class="main"><div class="t">${esc(b.name)}</div><div class="s">${esc(sub)}${b.expected ? ` <span class="badge">Expected</span>` : ""}</div></div>
     <div class="r">${st.pulls || pl.pulls ? `<div><b>${st.pulls}</b>${pl.pulls ? `<span class="muted small"> of ${pl.pulls}</span>` : ""}</div><div class="m">wishes used</div>` : feat.length ? `<div class="m">${feat.filter(m => S.owned[m.id]?.have).length} of ${feat.length} owned</div>` : ""}</div></li>`;
 }
@@ -359,8 +370,8 @@ function feedItem(e) {
     (e.results || []).forEach(r => sub.push(`5★ ${liOf(r.li)?.n || ""}${r.card ? " " + r.card : ""} at pity ${r.pity}${r.outcome === "lost" ? (r.src === "std" ? ", standard card" : ", not your pick") : r.outcome === "std" ? "" : ", limited"}`));
     if (extraOf(e)) sub.push(`${extraOf(e)} extra`);
   } else if (e.kind === "gain") sub.push(e.source || "");
-  else if (e.kind === "purchase") sub.push(e.estimate ? "Estimate" : e.bannerName || e.group || "");
-  sub.push(fmtDate(e.date, true));
+  else if (e.kind === "purchase") { sub.push(e.estimate ? "Estimate" : e.bannerName || e.group || ""); sub.push(e.via || ""); }
+  sub.push(entryWhen(e));
   const mk = {purchase: "bag", pull: "pull", gain: "gift", adjust: "eq"}[e.kind];
   return `<li data-edit="${e.id}"><div class="mark ${e.kind}">${icon(mk)}</div><div class="main"><div class="t">${esc(title)}</div><div class="s">${sub.filter(Boolean).map(esc).join(", ")}</div></div>
     <div class="r">${e.kind === "gain" && e.diamonds ? `<div class="plus" style="font-weight:700">+${num(e.diamonds).toLocaleString()} Diamonds</div>` : w ? `<div class="${w > 0 ? "plus" : "minus"} ${blue ? "blue" : ""}" style="font-weight:700">${w > 0 ? "+" : "−"}${fmtW(Math.abs(w))}</div>` : ""}${e.kind === "purchase" ? `<div class="m">${fmtM(e.amount)}</div>` : ""}</div></li>`;
@@ -404,7 +415,7 @@ function viewBanners() {
 }
 function bannerDetail(b) {
   const st = bannerStats(b), pl = planFor(b), pool = poolFor(b.type, b.rerun), feat = memsOfPool(b.name), stat = bannerStatus(b);
-  modal(`<div style="display:flex;gap:12px;align-items:center;margin-bottom:4px">${avatars(b.lis)}<div><h3>${esc(b.name)}</h3><div class="small muted">${esc(bannerKind(b))}, ${esc(fmtRange(b.start, b.end) || "dates not set")}</div></div></div>
+  modal(`<div style="display:flex;gap:12px;align-items:center;margin-bottom:4px">${avatars(b.lis)}<div><h3>${esc(b.name)}</h3><div class="small muted">${esc(bannerKind(b))}, ${esc(bannerWhen(b) || "dates not set")}</div></div></div>
     ${b.note ? `<div class="note" style="margin:10px 0">${esc(b.note)}</div>` : ""}
     ${feat.length ? `<div class="lbl" style="margin:12px 0 8px">5★ Memories</div><div class="mgrid">${feat.map(memRow).join("")}</div>` : ""}
     ${stat !== "past" ? `<div class="lbl" style="margin:14px 0 8px">Your plan</div><div class="fields2"><div class="field"><label for="b_p">Wishes I plan to use</label><input id="b_p" type="number" inputmode="numeric" value="${pl.pulls || ""}" placeholder="e.g. 150"></div>
@@ -679,9 +690,11 @@ function buyForm(p, presetBanner) {
     ${yearlyClosed ? `<div class="note" style="margin-bottom:12px">Yearly passes are only sold at the start of the year. Use this to record one you bought.</div>` : ""}
     <div class="fields2">${oneOnly ? "" : `<div class="field"><label>How many</label><div class="stepper"><button type="button" data-m aria-label="Fewer">−</button><span class="q" id="qv">1</span><button type="button" data-p aria-label="More">+</button></div></div>`}
     <div class="field"><label for="f_pr">Price (${sym()})</label><input id="f_pr" type="number" inputmode="decimal" step="0.01" value="${p.price ?? ""}" placeholder="Price in game"></div></div>
+    ${viaSelect(S.settings.lastVia || "Google Play")}
+    ${p.wishes || p.emp ? `<label class="check" style="border:none;padding-top:0"><input type="checkbox" id="f_add" checked><span class="main">Add the wishes to my total<div class="small muted">Untick for an old purchase whose wishes you already have.</div></span></label>` : ""}
     <div class="summary" id="sum"></div>
     ${dateField(today())}
-    <button class="btn primary" style="width:100%" data-ok>Buy now</button>
+    <button class="btn primary" style="width:100%" data-ok>Save purchase</button>
     <button class="btn" style="width:100%;margin-top:8px" data-plan>Add to my budget plan instead</button>
     <p class="small muted" style="margin:8px 2px 0">A plan counts toward that month's budget without being recorded as spent. Mark it as bought later.</p>
     <div class="acts"><button class="btn sm ghost" data-editpack>Change this pack</button><span style="flex:1"></span><button class="btn sm" data-x>Cancel</button></div>`, el => {
@@ -690,11 +703,12 @@ function buyForm(p, presetBanner) {
     const upd = () => {
       if (el.querySelector("#qv")) el.querySelector("#qv").textContent = q;
       const b = num(S.settings.budget), sm = spentIn(thisMonth()), cost = r2(pr() * q), auto = S.settings.autoIncome;
-      el.querySelector("#sum").innerHTML = `${p.wishes || p.emp ? `<div class="row"><span>Wishes now</span><b class="plus">+${fmtW(p.wishes * q)}${p.emp ? ` and ${p.emp * q} Empyrean` : ""}</b></div>` : ""}
+      const add = !el.querySelector("#f_add") || el.querySelector("#f_add").checked;
+      el.querySelector("#sum").innerHTML = `${(p.wishes || p.emp) && add ? `<div class="row"><span>Wishes now</span><b class="plus">+${fmtW(p.wishes * q)}${p.emp ? ` and ${p.emp * q} Empyrean` : ""}</b></div>` : ""}
         ${p.pass && p.total ? `<div class="row"><span>${auto ? "Added daily through login income" : "Wishes (all at once, since daily income is off)"}</span><span>${plural(p.total, "wish")}</span></div>` : ""}
         <div class="row"><span>Cost</span><b>${fmtM(cost)}</b></div>${b ? `<div class="row small"><span class="muted">Spent this month after this</span><b class="${sm + cost > b ? "minus" : "plus"}">${fmtM(sm + cost)} of ${fmtM(b)}</b></div>` : ""}`;
     };
-    upd(); el.querySelector("#f_pr").oninput = upd;
+    upd(); el.querySelector("#f_pr").oninput = upd; if (el.querySelector("#f_add")) el.querySelector("#f_add").onchange = upd;
     bind(el, "[data-m]", () => { q = Math.max(1, q - 1); upd(); });
     bind(el, "[data-p]", () => { q++; upd(); });
     bind(el, "[data-x]", closeModal);
@@ -702,14 +716,15 @@ function buyForm(p, presetBanner) {
     bind(el, "[data-plan]", () => planForm({name: (q > 1 ? q + " × " : "") + (isPool ? `${p.group.replace(" packs", "")} ${p.name}` : p.name), group: p.group, price: r2(pr() * q), wishes: r2((p.total || p.wishes) * q), month: thisMonth(), repeat: p.id === "aurum"}));
     bind(el, "[data-ok]", () => {
       if (val(el, "#f_pr") === "") return toast("Enter the price you paid");
-      const bannerId = el.querySelector("#f_bn") ? val(el, "#f_bn") : "", date = val(el, "#f_d") || today();
+      const bannerId = el.querySelector("#f_bn") ? val(el, "#f_bn") : "", date = val(el, "#f_d") || today(), via = val(el, "#f_via"), add = !el.querySelector("#f_add") || el.querySelector("#f_add").checked;
       closeModal();
       act(`Bought ${p.name}`, () => {
         const pk = S.packs.find(x => x.id === p.id); if (pk && pk.price == null) pk.price = pr();
-        const credit = p.pass && !S.settings.autoIncome ? num(p.total) : num(p.wishes);
-        S.entries.push({id: uid(), ts: Date.now(), kind: "purchase", date, label: (q > 1 ? q + " × " : "") + (isPool ? `${p.group.replace(" packs", "")} ${p.name}` : p.name), packId: p.id, group: p.group,
-          wishes: r2(credit * q), total: r2((p.total || p.wishes) * q), emp: r2(num(p.emp) * q), amount: r2(pr() * q), bannerId, bannerName: bannerById(bannerId)?.name || "", note: ""});
-        if (p.pass) startPass(p.pass, date);
+        const credit = !add ? 0 : p.pass && !S.settings.autoIncome ? num(p.total) : num(p.wishes);
+        S.settings.lastVia = via;
+        S.entries.push({id: uid(), ts: Date.now(), kind: "purchase", date, label: (q > 1 ? q + " × " : "") + (isPool ? `${p.group.replace(" packs", "")} ${p.name}` : p.name), packId: p.id, group: p.group, via,
+          wishes: r2(credit * q), total: r2((p.total || p.wishes) * q), emp: add ? r2(num(p.emp) * q) : 0, amount: r2(pr() * q), bannerId, bannerName: bannerById(bannerId)?.name || "", note: ""});
+        if (p.pass && date > addDays(today(), -31)) startPass(p.pass, date);
       });
     });
   });
@@ -759,15 +774,49 @@ function viewBudget() {
   <h2 class="sec">Last 12 months</h2><div class="panel pad">${chart(series(12), 190)}</div>`;
 }
 function viewSpending() {
-  const P = S.entries.filter(e => e.kind === "purchase"), tot = P.reduce((s, e) => s + num(e.amount), 0) || 1, T = totals(), L = luck();
-  const by = key => { const o = {}; P.forEach(e => { const k = key(e) || "Other"; o[k] = o[k] || {rm: 0, n: 0}; o[k].rm += num(e.amount); o[k].n++; }); return Object.entries(o).sort((a, z) => z[1].rm - a[1].rm); };
+  const m = thisMonth(), T = totals(), bud = num(S.settings.budget), sum = a => r2(a.reduce((t, x) => t + num(x.price ?? x.amount), 0));
+  const P = S.entries.filter(e => e.kind === "purchase").sort((a, z) => z.date.localeCompare(a.date) || (z.ts || 0) - (a.ts || 0));
+  const now = P.filter(e => e.date.startsWith(m)), past = P.filter(e => e.date.slice(0, 7) < m), sm = sum(now.filter(e => !e.estimate));
+  const plans = S.plans.slice().sort((a, z) => a.month.localeCompare(z.month)), planNow = plans.filter(p => p.month <= m), planLater = plans.filter(p => p.month > m);
+  const first = P.length ? P[P.length - 1].date.slice(0, 7) : m; let n = 1; for (let x = first; x < m; x = addMonth(x, 1)) n++;
+  const wishesOf = e => num(e.total ?? e.wishes);
+  const row = e => `<li data-edit="${e.id}"><div class="main"><div class="t">${esc(e.label)}${e.estimate ? ` <span class="badge">Estimate</span>` : ""}</div><div class="s">${[entryWhen(e), e.via, e.bannerName].filter(Boolean).map(esc).join(", ")}</div></div>
+    <div class="r"><b>${fmtM(e.amount)}</b>${wishesOf(e) ? `<div class="m">${plural(wishesOf(e), "wish")}</div>` : ""}</div></li>`;
+  const prow = p => `<li><div class="main"><div class="t">${esc(p.name)} <span class="badge">Planned</span></div><div class="s">${fmtMonth(p.month)}${p.repeat ? ", every month" : ""}${p.month < m ? ", overdue" : ""}</div></div>
+    <div class="r"><b>${fmtM(p.price)}</b><div style="display:flex;gap:6px;margin-top:4px;justify-content:flex-end"><button class="btn sm" data-editplan="${p.id}">Edit</button><button class="btn sm primary" data-buyplan="${p.id}">Bought</button></div></div></li>`;
+  const line = (k, v, cls = "") => `<div class="row"><span>${k}</span><b class="${cls}">${v}</b></div>`;
+  const group = (list, key) => { const o = {}; list.forEach(e => { const k = key(e) || "Not set"; o[k] = o[k] || {rm: 0, n: 0, w: 0}; o[k].rm += num(e.amount); o[k].n++; o[k].w += wishesOf(e); }); return Object.entries(o).sort((a, z) => z[1].rm - a[1].rm); };
+  const table = (title, rows) => rows.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>${title}</th><th>Buys</th><th>Wishes</th><th>Spent</th><th>Share</th></tr></thead><tbody>${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.n}</td><td>${fmtW(v.w)}</td><td><b>${fmtM(v.rm)}</b></td><td>${Math.round(v.rm / (T.spent || 1) * 100)}%</td></tr>`).join("")}</tbody></table></div>` : "";
+  const months = [...new Set(past.map(e => e.date.slice(0, 7)))].sort().reverse(), years = [...new Set(P.map(e => e.date.slice(0, 4)))].sort().reverse();
+  const laterMonths = [...new Set(planLater.map(p => p.month))];
+  const aurumEnd = S.passes.aurum && S.passes.aurum >= today() ? S.passes.aurum : "";
   return `<div class="tiles">
-    <div class="tile"><div class="k">Spent in total</div><div class="v">${fmtM(T.spent)}</div><div class="h">${T.est ? `${fmtM(T.est)} estimated` : "&nbsp;"}</div></div>
-    <div class="tile"><div class="k">Wishes bought</div><div class="v">${fmtW(T.bought)}</div><div class="h">${T.bought ? `${fmtM((T.spent - T.est) / T.bought)} each` : "&nbsp;"}</div></div>
-    <div class="tile"><div class="k">Featured 5★ won</div><div class="v">${L.featured}</div><div class="h">${L.featured ? `${fmtM(T.spent / L.featured)} each` : "&nbsp;"}</div></div>
-    <div class="tile"><div class="k">Extra wishes</div><div class="v">${fmtW(L.extra)}</div><div class="h">after getting the Memory</div></div></div>
-  <h2 class="sec">Where it went<span class="sp"></span><button class="act" data-act="estimate">Add past spending</button></h2>
-  <div class="panel pad">${P.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Type</th><th>Buys</th><th>Spent</th><th></th></tr></thead><tbody>${by(e => e.estimate ? "Estimated" : e.group).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.n}</td><td>${fmtM(v.rm)}</td><td style="width:30%"><div class="bar"><i style="width:${v.rm / tot * 100}%"></i></div></td></tr>`).join("")}</tbody></table></div>` : `<div class="muted">No purchases yet.</div>`}</div>`;
+    <div class="tile"><div class="k">Spent in total</div><div class="v">${fmtM(T.spent)}</div><div class="h">${plural(P.length, "purchase")} since ${fmtMonth(first)}</div></div>
+    <div class="tile"><div class="k">Spent in ${MONTHS[+m.slice(5) - 1]}</div><div class="v">${fmtM(sm)}</div><div class="h">${bud ? (sm > bud ? `${fmtM(sm - bud)} over budget` : `${fmtM(bud - sm)} left of ${fmtM(bud)}`) : "No budget set"}</div></div>
+    <div class="tile"><div class="k">Planned ahead</div><div class="v">${fmtM(sum(plans))}</div><div class="h">${plural(plans.length, "planned buy")}</div></div>
+    <div class="tile"><div class="k">Average a month</div><div class="v">${fmtM(T.spent / n)}</div><div class="h">over ${plural(n, "month")}</div></div></div>
+
+  <h2 class="sec">${fmtMonth(m)}<span class="sp"></span><button class="act" data-shop="packs">Buy</button></h2>
+  <div class="panel">${now.length || planNow.length ? `<ul class="rows">${now.map(row).join("")}${planNow.map(prow).join("")}</ul>` : `<div class="empty">Nothing bought or planned this month.</div>`}
+    <div class="summary" style="margin:6px 0 12px">${line("Spent", fmtM(sm))}${planNow.length ? line("Still planned", fmtM(sum(planNow))) : ""}${line("Month total", fmtM(sm + sum(planNow)))}${bud ? line(sm + sum(planNow) > bud ? "Over budget by" : "Budget left", fmtM(Math.abs(bud - sm - sum(planNow))), sm + sum(planNow) > bud ? "minus" : "plus") : ""}</div></div>
+
+  <h2 class="sec">Coming up<span class="sp"></span><button class="act" data-act="newplan">Plan a buy</button></h2>
+  <div class="panel">${aurumEnd ? `<div class="note" style="margin:12px 0 4px">Aurum Pass runs out on ${fmtDate(aurumEnd)}.</div>` : ""}
+    ${laterMonths.length ? laterMonths.map(x => { const l = planLater.filter(p => p.month === x); return `<div class="lbl" style="margin:14px 0 2px;display:flex"><span>${fmtMonth(x)}</span><span style="flex:1"></span><b>${fmtM(sum(l))}</b></div><ul class="rows">${l.map(prow).join("")}</ul>`; }).join("")
+      + `<div class="summary" style="margin:6px 0 12px">${line("Total planned after this month", fmtM(sum(planLater)))}</div>` : `<div class="empty">Nothing planned for later months. Plan buys to see what's coming and whether it fits your budget.</div>`}</div>
+
+  <h2 class="sec">Past months</h2>
+  <div class="panel">${months.length ? months.map((x, i) => { const l = past.filter(e => e.date.startsWith(x)), t = sum(l); return `<details ${i === 0 ? "open" : ""}><summary><span class="sumrow"><span>${fmtMonth(x)}</span><span style="flex:1"></span><span class="muted small">${plural(l.length, "buy")}</span><b>${fmtM(t)}</b>${bud && t > bud ? `<span class="badge b">over</span>` : ""}</span></summary><ul class="rows">${l.map(row).join("")}</ul></details>`; }).join("") : `<div class="empty">No purchases before this month.</div>`}</div>
+
+  <h2 class="sec">Totals<span class="sp"></span><button class="act" data-act="estimate">Add past spending</button></h2>
+  <div class="panel pad">
+    ${P.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Year</th><th>Buys</th><th>Spent</th><th>A month</th></tr></thead><tbody>${years.map(y => { const l = P.filter(e => e.date.startsWith(y)), mm = new Set(l.map(e => e.date.slice(0, 7))).size; return `<tr><td>${y}</td><td>${l.length}</td><td><b>${fmtM(sum(l))}</b></td><td>${fmtM(sum(l) / Math.max(1, mm))}</td></tr>`; }).join("")}
+      <tr><td><b>All time</b></td><td><b>${P.length}</b></td><td><b>${fmtM(T.spent)}</b></td><td>${fmtM(T.spent / n)}</td></tr></tbody></table></div>
+    <div class="lbl" style="margin:18px 0 6px">By pass or pack</div>${table("Type", group(P, e => e.estimate ? "Estimated" : (e.group === "From Excel" ? "Other" : e.group)))}
+    <div class="lbl" style="margin:18px 0 6px">By what you bought</div>${table("Item", group(P, e => e.label.replace(/^\d+ × /, "")))}
+    <div class="lbl" style="margin:18px 0 6px">By where you paid</div>${table("Paid through", group(P, e => e.via))}
+    <div class="small muted" style="margin-top:10px">${T.bought ? `${plural(T.bought, "wish")} bought in total, about ${fmtM((T.spent - T.est) / Math.max(1, T.bought))} each.` : ""}</div>` : `<div class="muted">No purchases yet.</div>`}
+  </div>`;
 }
 function planForm(p) {
   const isNew = !p || !p.id; p = Object.assign({name: "", group: "", price: "", wishes: "", month: thisMonth(), repeat: false}, p || {});
@@ -855,10 +904,11 @@ function entryForm(e) {
     <div class="fields2"><div class="field"><label for="f_w">Wishes${e.kind === "adjust" ? " (+ or −)" : ""}</label><input id="f_w" type="number" inputmode="decimal" step="any" value="${e.wishes}"></div>
     ${e.kind === "purchase" ? `<div class="field"><label for="f_a">Paid (${sym()})</label><input id="f_a" type="number" inputmode="decimal" step="0.01" value="${e.amount}"></div>` : "<div></div>"}</div>
     <div class="field"><label for="f_d">Date</label><input id="f_d" type="date" value="${e.date}"></div>
+    ${e.kind === "purchase" ? viaSelect(e.via || "Other") : ""}
     <div class="field"><label for="f_n">Note</label><input id="f_n" value="${esc(e.note || "")}"></div>
     <div class="acts"><button class="btn danger" data-del>Delete</button><button class="btn primary" data-ok>Save</button></div>`, el => {
     bind(el, "[data-del]", () => { closeModal(); act("Deleted", () => { S.entries = S.entries.filter(x => x.id !== e.id); }); });
-    bind(el, "[data-ok]", () => { const v = {label: val(el, "#f_l").trim(), wishes: r2(val(el, "#f_w")), note: val(el, "#f_n").trim(), date: val(el, "#f_d") || e.date}; if (e.kind === "purchase") v.amount = r2(val(el, "#f_a")); closeModal(); act("Saved", () => Object.assign(S.entries.find(x => x.id === e.id), v)); });
+    bind(el, "[data-ok]", () => { const v = {label: val(el, "#f_l").trim(), wishes: r2(val(el, "#f_w")), note: val(el, "#f_n").trim(), date: val(el, "#f_d") || e.date}; if (e.kind === "purchase") { v.amount = r2(val(el, "#f_a")); v.via = val(el, "#f_via"); if (v.date !== e.date) v.approx = false; } closeModal(); act("Saved", () => Object.assign(S.entries.find(x => x.id === e.id), v)); });
   });
 }
 

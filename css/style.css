@@ -256,3 +256,5 @@ footer.credit .name{font:400 16px var(--display);color:var(--text)}
 @media(max-width:520px){.fields2.wide1{grid-template-columns:1fr;gap:0}}
 .rows li[data-banner] .t,.rows li[data-banner] .s{white-space:normal}
 .rows li[data-banner] .avs .av+.av{margin-left:-14px}
+
+.sumrow{display:inline-flex;align-items:baseline;gap:10px;width:calc(100% - 26px);vertical-align:middle}
