@@ -11,7 +11,7 @@ const CONFIG = {
   hardPity: 70,
   softPity: 60,
   diamondsPerWish: 150,
-  version: "1.1.0",
+  version: "1.2.0",
   // Sync between devices (Supabase). Leave empty until the database is set up.
   syncUrl: "",
   syncKey: ""
@@ -115,7 +115,11 @@ const DEFAULT_PACKS = [
   {id: "a40", group: "Association packs", name: "Level 40", myr: 148.44, wishes: 30, limit: 1},
   {id: "a50", group: "Association packs", name: "Level 50", myr: 247.42, wishes: 50, limit: 1},
   {id: "a60", group: "Association packs", name: "Level 60", myr: 296.92, wishes: 60, limit: 1},
-  {id: "a65", group: "Association packs", name: "Level 65", myr: 494.9,  wishes: 100, limit: 1}
+  {id: "a65", group: "Association packs", name: "Level 65", myr: 494.9,  wishes: 100, limit: 1},
+  /* crystals: a Purple Crystal top-up (counts as money spent, not as wishes).
+     crystalOk: can be paid with Crystals instead of money. varies: the price changes, so it isn't remembered. */
+  {id: "crys",   group: "Crystals", name: "Purple Crystals", myr: null, wishes: 0, crystals: true, varies: true, gives: "For outfits and passes. Not counted as wishes"},
+  {id: "outfit", group: "Outfits",  name: "Outfit",          myr: null, wishes: 0, crystalOk: true, varies: true, gives: "Pay with money or with Crystals"}
 ];
 const PASSES = {
   aurum:    {n: "Aurum Pass"},
@@ -128,6 +132,14 @@ const PASSES = {
 /* What's new. Newest first. Shown once after each update.
    1.0.0 is the first version in use. New features add to the middle number, fixes to the last. */
 const CHANGELOG = [
+  {v: "1.2.0", date: "2026-11-12", title: "History in two parts, and Purple Crystals", items: [
+    "History has two parts: Items and Purchases",
+    "Items shows what came in and went out, with what was left after each one",
+    "Filter Items by Diamonds, Deepspace Wishes, Empyrean Wishes or Crystals",
+    "Purchases shows only money spent, by month, with where you paid",
+    "Buy Purple Crystals in the Shop. They count as money spent, not as wishes",
+    "Pay for a pass or outfit with Crystals, so nothing is counted twice",
+    "Match game can set your Crystals too"]},
   {v: "1.1.0", date: "2026-11-12", title: "Tour, update notes and detailed spending", items: [
     "A short tour of every feature. Skip it, or replay it any time from Settings",
     "This pop-up, which shows what changed whenever Wishbound is updated",

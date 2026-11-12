@@ -206,6 +206,7 @@ nav.tabs button.on svg{color:var(--gold)}
 @keyframes u{from{transform:translateY(24px)}}
 .sheet h3{margin:0 0 4px;font:400 22px/1.2 var(--display)}
 .sheet .desc{color:var(--muted);font-size:13.5px;margin-bottom:14px}
+[hidden]{display:none!important}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .field>label,.lbl{font-size:13px;font-weight:600;color:var(--muted)}
 .field input,.field select,.field textarea,.inp{border:1px solid var(--line);background:var(--raise);border-radius:12px;padding:11px 12px;font-size:16px;width:100%}

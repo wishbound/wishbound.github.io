@@ -116,6 +116,30 @@ function delta(e) {
   if (e.kind === "pull") return e.cur === "emp" ? {ds: 0, emp: -e.pulls} : {ds: -e.pulls, emp: 0};
   return {ds: num(e.wishes), emp: num(e.emp)};
 }
+/* Purple Crystals. Buying them counts as money spent; they are never counted as wishes.
+   A pass or outfit paid with Crystals is a purchase with paidWith "crystals", amount 0 and crystalCost. */
+const paidWithCrystals = e => e.kind === "purchase" && e.paidWith === "crystals";
+function crystalsOf(e) {
+  if (e.kind === "adjust") return num(e.crystals);
+  if (e.kind !== "purchase") return 0;
+  if (paidWithCrystals(e)) return -num(e.crystalCost);
+  if (e.crystals != null) return num(e.crystals);
+  // older entries only have the amount in the name, e.g. "980 Purple Crystals"
+  const m = e.group === "Crystals" && /([\d,]+)\s*(purple\s*)?crystals/i.exec(e.label || "");
+  return m ? num(m[1].replace(/,/g, "")) : 0;
+}
+const crystalBalance = () => S.entries.reduce((s, e) => s + crystalsOf(e), 0);
+/* What an entry added or took away, by item. Diamonds are also counted in wishes (150 = 1). */
+const ITEMS = {dia: "Diamonds", ds: "Deepspace Wishes", emp: "Empyrean Wishes", cry: "Crystals"};
+function itemMoves(e) {
+  const out = [], d = delta(e), dia = e.kind === "gain" || e.kind === "purchase" ? num(e.diamonds) : 0;
+  if (dia) out.push(["dia", dia]);
+  const ds = r2(d.ds - D2W(dia));
+  if (Math.abs(ds) >= 0.01) out.push(["ds", ds]);
+  if (d.emp) out.push(["emp", d.emp]);
+  const c = crystalsOf(e); if (c) out.push(["cry", c]);
+  return out;
+}
 function balances() { let ds = 0, emp = 0; for (const e of S.entries) { const d = delta(e); ds += d.ds; emp += d.emp; } return {ds: r2(ds), emp: r2(emp)}; }
 function totals() {
   let spent = 0, bought = 0, est = 0, used = 0, got = 0;
@@ -254,7 +278,7 @@ async function pullNow(quiet) {
 function newCode() { const a = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; const g = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), x => a[x % a.length]).join(""); return `LADS-${g()}-${g()}`; }
 
 /* ---------- UI plumbing ---------- */
-let tab = "home", shopView = "passes", histFilter = "all", histQuery = "", packGroup = "", colLi = "all", colView = "li", colFilter = "all", colQuery = "";
+let tab = "home", shopView = "passes", histView = "items", histCur = "all", histQuery = "", packGroup = "", colLi = "all", colView = "li", colFilter = "all", colQuery = "";
 function toast(t, withUndo) {
   document.querySelectorAll(".toast").forEach(x => x.remove());
   const d = document.createElement("div"); d.className = "toast"; d.setAttribute("role", "status");
@@ -626,14 +650,15 @@ function matchForm() {
     <div class="fields2"><div class="field"><label for="f_dm">Diamonds</label><input id="f_dm" type="number" inputmode="numeric"></div><div class="field"><label for="f_tk">Deepspace Wishes</label><input id="f_tk" type="number" inputmode="numeric"></div></div>
     <div class="field"><label for="f_w">Total in wishes</label><input id="f_w" type="number" inputmode="decimal" step="any" value="${Math.floor(B.ds)}"></div>
     ${S.profile.trackStandard ? `<div class="field"><label for="f_emp">Empyrean Wishes</label><input id="f_emp" type="number" inputmode="numeric" value="${B.emp}"></div>` : ""}
+    <div class="field"><label for="f_cr">Purple Crystals</label><input id="f_cr" type="number" inputmode="numeric" value="${crystalBalance()}"></div>
     <div class="acts"><button class="btn" data-x>Cancel</button><button class="btn primary" data-ok>Save</button></div>`, el => {
     const w = el.querySelector("#f_w"), calc = () => { if (val(el, "#f_dm") || val(el, "#f_tk")) w.value = r2(D2W(num(val(el, "#f_dm"))) + num(val(el, "#f_tk"))); };
     el.querySelector("#f_dm").oninput = calc; el.querySelector("#f_tk").oninput = calc;
     bind(el, "[data-x]", closeModal);
     bind(el, "[data-ok]", () => {
-      const d = r2(num(w.value) - B.ds), de = el.querySelector("#f_emp") ? r2(num(val(el, "#f_emp")) - B.emp) : 0;
-      closeModal(); if (!d && !de) return toast("Already matches");
-      act("Matched to the game", () => S.entries.push({id: uid(), ts: Date.now(), kind: "adjust", date: today(), label: "Matched to game", wishes: d, emp: de, note: val(el, "#f_dm") ? `${num(val(el, "#f_dm")).toLocaleString()} Diamonds, ${num(val(el, "#f_tk"))} wishes` : ""}));
+      const d = r2(num(w.value) - B.ds), de = el.querySelector("#f_emp") ? r2(num(val(el, "#f_emp")) - B.emp) : 0, dc = Math.round(num(val(el, "#f_cr")) - crystalBalance());
+      closeModal(); if (!d && !de && !dc) return toast("Already matches");
+      act("Matched to the game", () => S.entries.push({id: uid(), ts: Date.now(), kind: "adjust", date: today(), label: "Matched to game", wishes: d, emp: de, ...(dc ? {crystals: dc} : {}), note: val(el, "#f_dm") ? `${num(val(el, "#f_dm")).toLocaleString()} Diamonds, ${num(val(el, "#f_tk"))} wishes` : ""}));
     });
   });
 }
@@ -678,55 +703,74 @@ function viewPacks() {
   const groups = [...new Set(S.packs.filter(p => p.group !== "Passes").map(p => p.group))];
   if (!groups.includes(packGroup)) packGroup = groups[0];
   return `<div class="chips" style="margin-bottom:12px">${groups.map(g => `<button class="chip ${g === packGroup ? "on" : ""}" data-pg="${esc(g)}">${esc(g.replace(" packs", ""))}</button>`).join("")}</div>
-  <div class="panel"><ul class="rows">${S.packs.filter(p => p.group === packGroup).map(p => `<li><div class="main"><div class="t">${esc(p.name)}</div><div class="s">${plural(p.wishes, "wish")}${p.limit ? `, limit ${p.limit}` : ""}${p.price && p.wishes ? `, ${fmtM(p.price / p.wishes)} each` : ""}</div></div>
-    <div class="r"><div style="font-weight:700">${p.price != null ? fmtM(p.price) : "Set price"}</div><button class="btn sm" style="margin-top:4px" data-pack="${p.id}">Buy</button></div></li>`).join("")}</ul></div>
+  <div class="panel"><ul class="rows">${S.packs.filter(p => p.group === packGroup).map(p => `<li><div class="main"><div class="t">${esc(p.name)}</div><div class="s ${p.gives && !p.wishes ? "wrap" : ""}">${p.gives && !p.wishes ? esc(p.gives) : `${plural(p.wishes, "wish")}${p.limit ? `, limit ${p.limit}` : ""}${p.price && p.wishes ? `, ${fmtM(p.price / p.wishes)} each` : ""}`}</div></div>
+    <div class="r"><div style="font-weight:700">${p.varies ? "" : p.price != null ? fmtM(p.price) : "Set price"}</div><button class="btn sm" style="margin-top:4px" data-pack="${p.id}">Buy</button></div></li>`).join("")}</ul></div>
   <div class="toolbar" style="margin-top:12px"><button class="btn sm" data-act="newpack">Add a pack that isn't listed</button></div>`;
 }
 function buyForm(p, presetBanner) {
-  let q = 1;
-  const isPool = /pool packs/.test(p.group), oneOnly = p.group === "Passes" || num(p.limit) === 1;
+  let q = 1, payC = false;
+  const isPool = /pool packs/.test(p.group), oneOnly = p.group === "Passes" || num(p.limit) === 1 || p.crystals || p.crystalOk;
+  const canC = p.crystalOk || p.group === "Passes";
   const live = allBanners().filter(b => bannerStatus(b) !== "past" || (b.end && daysBetween(b.end, today()) < 30));
   const guess = presetBanner || (isPool ? (bannersBy("current").find(b => p.group.toLowerCase().startsWith(b.rerun ? "rerun" : typeName(b.type).toLowerCase())) || bannersBy("current")[0] || {}).id : "");
   const warnPromise = p.promise && promiseBought(), yearlyClosed = p.yearly && today() > YEARLY.onSale[1];
   modal(`<h3>${esc(p.name)}</h3><div class="desc">${esc(p.gives || `${plural(p.wishes, "Deepspace Wish")}${p.limit ? `, limit ${p.limit} per pool` : ""}`)}</div>
     ${warnPromise ? `<div class="note" style="margin-bottom:12px">You already logged a Promise pass this season. Only one can be bought per season, so use this to record a past season's purchase.</div>` : ""}
     ${yearlyClosed ? `<div class="note" style="margin-bottom:12px">Yearly passes are only sold at the start of the year. Use this to record one you bought.</div>` : ""}
-    <div class="fields2">${oneOnly ? "" : `<div class="field"><label>How many</label><div class="stepper"><button type="button" data-m aria-label="Fewer">−</button><span class="q" id="qv">1</span><button type="button" data-p aria-label="More">+</button></div></div>`}
-    <div class="field"><label for="f_pr">Price (${sym()})</label><input id="f_pr" type="number" inputmode="decimal" step="0.01" value="${p.price ?? ""}" placeholder="Price in game"></div></div>
-    ${viaSelect(S.settings.lastVia || "Google Play")}
+    ${p.crystalOk ? `<div class="field"><label for="f_nm">Which one</label><input id="f_nm" placeholder="Optional, e.g. the outfit's name"></div>` : ""}
+    ${canC ? `<div class="field"><label>Paid with</label><div class="seg full"><button type="button" class="on" data-pay="money">Money</button><button type="button" data-pay="cry">Crystals</button></div></div>` : ""}
+    ${p.crystals ? `<div class="fields2"><div class="field"><label for="f_cr">Crystals</label><input id="f_cr" type="number" inputmode="numeric" placeholder="e.g. 980"></div>
+      <div class="field"><label for="f_bd">Bonus Diamonds</label><input id="f_bd" type="number" inputmode="numeric" placeholder="If any"></div></div>` : ""}
+    <div id="moneyF"><div class="fields2">${oneOnly ? "" : `<div class="field"><label>How many</label><div class="stepper"><button type="button" data-m aria-label="Fewer">−</button><span class="q" id="qv">1</span><button type="button" data-p aria-label="More">+</button></div></div>`}
+    <div class="field"><label for="f_pr">Price (${sym()})</label><input id="f_pr" type="number" inputmode="decimal" step="0.01" value="${p.varies ? "" : p.price ?? ""}" placeholder="Price in game"></div></div>
+    ${viaSelect(S.settings.lastVia || "Google Play")}</div>
+    ${canC ? `<div id="cryF" hidden><div class="field"><label for="f_cc">Crystals used</label><input id="f_cc" type="number" inputmode="numeric" placeholder="Crystals it cost"></div></div>` : ""}
     ${p.wishes || p.emp ? `<label class="check" style="border:none;padding-top:0"><input type="checkbox" id="f_add" checked><span class="main">Add the wishes to my total<div class="small muted">Untick for an old purchase whose wishes you already have.</div></span></label>` : ""}
     <div class="summary" id="sum"></div>
     ${dateField(today())}
     <button class="btn primary" style="width:100%" data-ok>Save purchase</button>
-    <button class="btn" style="width:100%;margin-top:8px" data-plan>Add to my budget plan instead</button>
-    <p class="small muted" style="margin:8px 2px 0">A plan counts toward that month's budget without being recorded as spent. Mark it as bought later.</p>
-    <div class="acts"><button class="btn sm ghost" data-editpack>Change this pack</button><span style="flex:1"></span><button class="btn sm" data-x>Cancel</button></div>`, el => {
+    <div id="planF"><button class="btn" style="width:100%;margin-top:8px" data-plan>Add to my budget plan instead</button>
+    <p class="small muted" style="margin:8px 2px 0">A plan counts toward that month's budget without being recorded as spent. Mark it as bought later.</p></div>
+    <div class="acts">${p.varies ? "" : `<button class="btn sm ghost" data-editpack>Change this pack</button>`}<span style="flex:1"></span><button class="btn sm" data-x>Cancel</button></div>`, el => {
     wireDate(el);
-    const pr = () => r2(val(el, "#f_pr"));
+    const pr = () => r2(val(el, "#f_pr")), n = sel => el.querySelector(sel) ? Math.max(0, Math.round(num(val(el, sel)))) : 0;
     const upd = () => {
       if (el.querySelector("#qv")) el.querySelector("#qv").textContent = q;
-      const b = num(S.settings.budget), sm = spentIn(thisMonth()), cost = r2(pr() * q), auto = S.settings.autoIncome;
-      const add = !el.querySelector("#f_add") || el.querySelector("#f_add").checked;
+      el.querySelector("#moneyF").hidden = payC; if (el.querySelector("#cryF")) el.querySelector("#cryF").hidden = !payC; el.querySelector("#planF").hidden = payC;
+      el.querySelectorAll("[data-pay]").forEach(b => b.classList.toggle("on", (b.dataset.pay === "cry") === payC));
+      const b = num(S.settings.budget), sm = spentIn(thisMonth()), cost = r2(pr() * q), auto = S.settings.autoIncome, cb = crystalBalance();
+      const add = !el.querySelector("#f_add") || el.querySelector("#f_add").checked, cr = n("#f_cr"), bd = n("#f_bd"), cc = n("#f_cc");
       el.querySelector("#sum").innerHTML = `${(p.wishes || p.emp) && add ? `<div class="row"><span>Wishes now</span><b class="plus">+${fmtW(p.wishes * q)}${p.emp ? ` and ${p.emp * q} Empyrean` : ""}</b></div>` : ""}
         ${p.pass && p.total ? `<div class="row"><span>${auto ? "Added daily through login income" : "Wishes (all at once, since daily income is off)"}</span><span>${plural(p.total, "wish")}</span></div>` : ""}
-        <div class="row"><span>Cost</span><b>${fmtM(cost)}</b></div>${b ? `<div class="row small"><span class="muted">Spent this month after this</span><b class="${sm + cost > b ? "minus" : "plus"}">${fmtM(sm + cost)} of ${fmtM(b)}</b></div>` : ""}`;
+        ${p.crystals && cr ? `<div class="row"><span>Crystals after this</span><b class="plus">${(cb + cr).toLocaleString("en")}</b></div>` : ""}
+        ${p.crystals && bd ? `<div class="row"><span>Bonus Diamonds as wishes</span><b class="plus">+${fmtW(D2W(bd))}</b></div>` : ""}
+        ${payC ? `<div class="row"><span>Cost</span><b>${cc.toLocaleString("en")} Crystals</b></div><div class="row small"><span class="muted">Crystals left after this</span><b class="${cb - cc < 0 ? "minus" : "plus"}">${(cb - cc).toLocaleString("en")}</b></div>`
+          : `<div class="row"><span>Cost</span><b>${fmtM(cost)}</b></div>${b ? `<div class="row small"><span class="muted">Spent this month after this</span><b class="${sm + cost > b ? "minus" : "plus"}">${fmtM(sm + cost)} of ${fmtM(b)}</b></div>` : ""}`}`;
     };
-    upd(); el.querySelector("#f_pr").oninput = upd; if (el.querySelector("#f_add")) el.querySelector("#f_add").onchange = upd;
+    upd(); el.querySelectorAll("#f_pr,#f_cr,#f_bd,#f_cc").forEach(x => x.oninput = upd); if (el.querySelector("#f_add")) el.querySelector("#f_add").onchange = upd;
+    el.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => { payC = b.dataset.pay === "cry"; upd(); });
     bind(el, "[data-m]", () => { q = Math.max(1, q - 1); upd(); });
     bind(el, "[data-p]", () => { q++; upd(); });
     bind(el, "[data-x]", closeModal);
     bind(el, "[data-editpack]", () => packForm(p));
     bind(el, "[data-plan]", () => planForm({name: (q > 1 ? q + " × " : "") + (isPool ? `${p.group.replace(" packs", "")} ${p.name}` : p.name), group: p.group, price: r2(pr() * q), wishes: r2((p.total || p.wishes) * q), month: thisMonth(), repeat: p.id === "aurum"}));
     bind(el, "[data-ok]", () => {
-      if (val(el, "#f_pr") === "") return toast("Enter the price you paid");
+      const cr = n("#f_cr"), bd = n("#f_bd"), cc = n("#f_cc"), nm = el.querySelector("#f_nm") ? val(el, "#f_nm").trim() : "";
+      if (p.crystals && !cr) return toast("Enter how many Crystals you got");
+      if (payC && !cc) return toast("Enter how many Crystals you used");
+      if (!payC && val(el, "#f_pr") === "") return toast("Enter the price you paid");
       const bannerId = el.querySelector("#f_bn") ? val(el, "#f_bn") : "", date = val(el, "#f_d") || today(), via = val(el, "#f_via"), add = !el.querySelector("#f_add") || el.querySelector("#f_add").checked;
       closeModal();
-      act(`Bought ${p.name}`, () => {
-        const pk = S.packs.find(x => x.id === p.id); if (pk && pk.price == null) pk.price = pr();
+      act(p.crystals ? `Bought ${cr.toLocaleString("en")} Crystals` : `Bought ${p.name}`, () => {
+        const pk = S.packs.find(x => x.id === p.id); if (pk && pk.price == null && !p.varies && !payC) pk.price = pr();
         const credit = !add ? 0 : p.pass && !S.settings.autoIncome ? num(p.total) : num(p.wishes);
-        S.settings.lastVia = via;
-        S.entries.push({id: uid(), ts: Date.now(), kind: "purchase", date, label: (q > 1 ? q + " × " : "") + (isPool ? `${p.group.replace(" packs", "")} ${p.name}` : p.name), packId: p.id, group: p.group, via,
-          wishes: r2(credit * q), total: r2((p.total || p.wishes) * q), emp: add ? r2(num(p.emp) * q) : 0, amount: r2(pr() * q), bannerId, bannerName: bannerById(bannerId)?.name || "", note: ""});
+        if (!payC) S.settings.lastVia = via;
+        const label = p.crystals ? `${cr.toLocaleString("en")} Purple Crystals` : nm ? `${p.name}: ${nm}` : (q > 1 ? q + " × " : "") + (isPool ? `${p.group.replace(" packs", "")} ${p.name}` : p.name);
+        const en = {id: uid(), ts: Date.now(), kind: "purchase", date, label, packId: p.id, group: p.group, via: payC ? "" : via,
+          wishes: r2(credit * q), total: r2((p.total || p.wishes) * q), emp: add ? r2(num(p.emp) * q) : 0, amount: payC ? 0 : r2(pr() * q), bannerId, bannerName: bannerById(bannerId)?.name || "", note: ""};
+        if (payC) Object.assign(en, {paidWith: "crystals", crystalCost: cc});
+        if (p.crystals) Object.assign(en, {crystals: cr, diamonds: bd, wishes: D2W(bd), total: 0});
+        S.entries.push(en);
         if (p.pass && date > addDays(today(), -31)) startPass(p.pass, date);
       });
     });
@@ -778,7 +822,7 @@ function viewBudget() {
 }
 function viewSpending() {
   const m = thisMonth(), T = totals(), bud = num(S.settings.budget), sum = a => r2(a.reduce((t, x) => t + num(x.price ?? x.amount), 0));
-  const P = S.entries.filter(e => e.kind === "purchase").sort((a, z) => z.date.localeCompare(a.date) || (z.ts || 0) - (a.ts || 0));
+  const P = S.entries.filter(e => e.kind === "purchase" && !paidWithCrystals(e)).sort((a, z) => z.date.localeCompare(a.date) || (z.ts || 0) - (a.ts || 0));
   const now = P.filter(e => e.date.startsWith(m)), past = P.filter(e => e.date.slice(0, 7) < m), sm = sum(now.filter(e => !e.estimate));
   const plans = S.plans.slice().sort((a, z) => a.month.localeCompare(z.month)), planNow = plans.filter(p => p.month <= m), planLater = plans.filter(p => p.month > m);
   const first = P.length ? P[P.length - 1].date.slice(0, 7) : m; let n = 1; for (let x = first; x < m; x = addMonth(x, 1)) n++;
@@ -885,33 +929,99 @@ function luck() {
   return {n: res.length, avg: res.length ? res.reduce((s, r) => s + num(r.pity), 0) / res.length : 0, wins: lim.filter(r => r.outcome === "win").length, lost: lim.filter(r => r.outcome === "lost").length,
     featured: lim.filter(r => r.outcome === "win" || r.outcome === "guar").length, extra: pulls.reduce((s, e) => s + extraOf(e), 0)};
 }
+const histMatch = (e, q) => !q || JSON.stringify([e.label, e.note, e.group, e.source, e.via, paidWithCrystals(e) ? "Paid with Crystals" : "", e.bannerName, fmtMonth(e.date.slice(0, 7)), (bannerById(e.bannerId)?.lis || []).map(k => liOf(k)?.n), (e.results || []).map(r => [r.card, liOf(r.li)?.n])]).toLowerCase().includes(q);
+const byMonth = list => { const o = {}; list.forEach(x => { const m = (x.e || x).date.slice(0, 7); (o[m] = o[m] || []).push(x); }); return Object.entries(o); };
 function viewHistory() {
-  const L = luck(), q = histQuery.trim().toLowerCase();
-  const list = ordered().reverse().filter(e => (histFilter === "all" || e.kind === histFilter) && (!q || JSON.stringify([e.label, e.note, e.group, e.source, e.via, e.bannerName, fmtMonth(e.date.slice(0, 7)), (bannerById(e.bannerId)?.lis || []).map(k => liOf(k)?.n), (e.results || []).map(r => [r.card, liOf(r.li)?.n])]).toLowerCase().includes(q)));
-  const byM = {}; list.forEach(e => (byM[e.date.slice(0, 7)] = byM[e.date.slice(0, 7)] || []).push(e));
-  return `<div class="tiles" style="margin-top:4px">
+  const q = histQuery.trim().toLowerCase();
+  return `<div class="toolbar" style="margin-top:4px"><div class="seg">${[["items", "Items"], ["buys", "Purchases"]].map(([k, l]) => `<button class="${histView === k ? "on" : ""}" data-hv="${k}">${l}</button>`).join("")}</div>
+    <input class="search" id="hq" placeholder="Search, e.g. Caleb" value="${esc(histQuery)}"></div>
+  ${histView === "buys" ? viewPurchases(q) : viewItems(q)}
+  <p class="small muted" style="margin:10px 2px">Tap anything to change or delete it.</p>`;
+}
+/* Items: everything that came in or went out, with what was left after it. */
+function viewItems(q) {
+  const L = luck(), after = {}; let ds = 0, emp = 0, cry = 0;
+  ordered().forEach(e => { const d = delta(e); ds += d.ds; emp += d.emp; cry += crystalsOf(e); after[e.id] = {ds, emp, cry}; });
+  const list = ordered().reverse().filter(e => histMatch(e, q)).map(e => ({e, mv: itemMoves(e)}))
+    .filter(x => histCur === "all" ? x.mv.length || x.e.kind === "pull" : x.mv.some(m => m[0] === histCur));
+  const left = (e, mv) => {
+    const a = after[e.id], k = histCur !== "all" ? histCur : (mv[0] || ["ds"])[0];
+    return k === "cry" ? `${fmtWB(a.cry)} Crystals left` : k === "emp" ? `${fmtWB(a.emp)} Empyrean left` : `${fmtWB(a.ds)} wishes left`;
+  };
+  const unit = (k, n) => { const a = Math.abs(n); return k === "dia" ? `${a.toLocaleString("en")} Diamonds` : k === "cry" ? `${a.toLocaleString("en")} Crystals` : k === "emp" ? `${fmtW(a)} Empyrean` : plural(a, "wish"); };
+  const row = ({e, mv}) => {
+    const title = e.kind === "pull" ? e.bannerName || "Wishes" : e.label || "", sub = [];
+    if (e.kind === "pull") { (e.results || []).forEach(r => sub.push(`5★ ${liOf(r.li)?.n || ""}${r.card ? " " + r.card : ""} at pity ${r.pity}`)); if (extraOf(e)) sub.push(`${extraOf(e)} extra`); }
+    else if (e.kind === "gain") { if (e.source !== title) sub.push(e.source || ""); }
+    else if (e.kind === "purchase") sub.push(paidWithCrystals(e) ? "Paid with Crystals" : e.estimate ? "Estimate" : e.bannerName || e.group || "");
+    sub.push(entryWhen(e));
+    const mk = {purchase: "bag", pull: "pull", gain: "gift", adjust: "eq"}[e.kind];
+    const shown = histCur === "all" ? mv : mv.filter(m => m[0] === histCur);
+    return `<li data-edit="${e.id}"><div class="mark ${e.kind}">${icon(mk)}</div><div class="main"><div class="t">${esc(title)}</div><div class="s">${sub.filter(Boolean).map(esc).join(", ")}</div></div>
+      <div class="r">${shown.map(([k, n]) => `<div class="${n > 0 ? "plus" : "minus"}${k === "emp" ? " blue" : ""}" style="font-weight:700">${n > 0 ? "+" : "−"}${unit(k, n)}</div>`).join("")}<div class="m">${left(e, mv)}</div></div></li>`;
+  };
+  const B = balances();
+  return `<div class="tiles" style="margin-top:12px">
+    <div class="tile"><div class="k">Wishes now</div><div class="v">${fmtWB(B.ds)}</div><div class="h">Diamonds counted in</div></div>
+    <div class="tile"><div class="k">Purple Crystals</div><div class="v">${fmtWB(crystalBalance())}</div><div class="h">not counted as wishes</div></div>
     <div class="tile"><div class="k">Average pity for a 5★</div><div class="v">${L.n ? L.avg.toFixed(1) : "–"}</div><div class="h">${plural(L.n, "5★")} logged</div></div>
     <div class="tile"><div class="k">50/50 record</div><div class="v">${L.wins + L.lost ? `${L.wins} won, ${L.lost} lost` : "–"}</div><div class="h">guaranteed pulls not counted</div></div>
     <div class="tile"><div class="k">Wishes used</div><div class="v">${fmtW(totals().used)}</div><div class="h">${fmtW(L.extra)} were extras</div></div>
     <div class="tile"><div class="k">Free wishes</div><div class="v">${fmtW(S.entries.filter(e => e.kind === "gain" && e.source !== "Wishes from packs").reduce((s, e) => s + num(e.wishes), 0))}</div><div class="h">from playing</div></div></div>
-  <div class="toolbar" style="margin-top:16px"><div class="seg">${[["all", "All"], ["pull", "Wishes"], ["purchase", "Bought"], ["gain", "Free"]].map(([k, l]) => `<button class="${histFilter === k ? "on" : ""}" data-hf="${k}">${l}</button>`).join("")}</div>
-    <input class="search" id="hq" placeholder="Search, e.g. Caleb" value="${esc(histQuery)}"></div>
-  ${Object.keys(byM).length ? Object.entries(byM).map(([m, es]) => `<h2 class="sec">${fmtMonth(m)}</h2><div class="panel"><ul class="rows">${es.map(feedItem).join("")}</ul></div>`).join("") : `<div class="panel pad muted">Nothing matches.</div>`}
-  <p class="small muted" style="margin:10px 2px">Tap anything to change or delete it.</p>`;
+  <div class="chips" style="margin:14px 0 2px">${[["all", "All"], ["dia", "Diamonds"], ["ds", "Deepspace Wishes"], ["emp", "Empyrean Wishes"], ["cry", "Crystals"]].map(([k, l]) => `<button class="chip ${histCur === k ? "on" : ""}" data-hc="${k}">${l}</button>`).join("")}</div>
+  ${list.length ? byMonth(list).map(([m, xs]) => `<h2 class="sec">${fmtMonth(m)}</h2><div class="panel"><ul class="rows">${xs.map(row).join("")}</ul></div>`).join("") : `<div class="panel pad muted" style="margin-top:12px">Nothing here yet.</div>`}
+  <p class="small muted" style="margin:10px 2px">Diamonds are counted as wishes (150 Diamonds = 1 wish), so “wishes left” includes them.</p>`;
+}
+/* Purchases: money only, by month, with where you paid. */
+function viewPurchases(q) {
+  const all = S.entries.filter(e => e.kind === "purchase" && !paidWithCrystals(e));
+  const P = all.filter(e => histMatch(e, q)).sort((a, z) => z.date.localeCompare(a.date) || (z.ts || 0) - (a.ts || 0));
+  const sum = l => r2(l.reduce((t, e) => t + num(e.amount), 0)), y = today().slice(0, 4), T = sum(all);
+  const via = {}; all.forEach(e => { const k = e.estimate ? "Estimate" : e.via || "Not set"; via[k] = r2((via[k] || 0) + num(e.amount)); });
+  const row = e => { const c = crystalsOf(e), w = num(e.total ?? e.wishes);
+    return `<li data-edit="${e.id}"><div class="main"><div class="t">${esc(e.label)}${e.estimate ? ` <span class="badge">Estimate</span>` : ""}</div><div class="s">${[entryWhen(e), e.via, e.bannerName].filter(Boolean).map(esc).join(", ")}</div></div>
+    <div class="r"><b>${fmtM(e.amount)}</b>${c ? `<div class="m">${c.toLocaleString("en")} Crystals</div>` : w ? `<div class="m">${plural(w, "wish")}</div>` : ""}</div></li>`; };
+  return `<div class="tiles" style="margin-top:12px">
+    <div class="tile"><div class="k">Spent in total</div><div class="v">${fmtM(T)}</div><div class="h">${plural(all.length, "purchase")}</div></div>
+    <div class="tile"><div class="k">Spent in ${y}</div><div class="v">${fmtM(sum(all.filter(e => e.date.startsWith(y))))}</div><div class="h">${MONTHS[+thisMonth().slice(5) - 1]}: ${fmtM(spentIn(thisMonth()))}</div></div></div>
+  ${Object.keys(via).length ? `<div class="panel pad" style="margin-top:12px"><div class="lbl" style="margin-bottom:4px">Where you paid</div>${Object.entries(via).sort((a, z) => z[1] - a[1]).map(([k, v]) => `<div class="row"><span>${esc(k)}</span><b>${fmtM(v)}</b></div>`).join("")}</div>` : ""}
+  ${P.length ? byMonth(P).map(([m, xs]) => `<h2 class="sec">${fmtMonth(m)}<span class="sp"></span><b>${fmtM(sum(xs))}</b></h2><div class="panel"><ul class="rows">${xs.map(row).join("")}</ul></div>`).join("") : `<div class="panel pad muted" style="margin-top:12px">No purchases${q ? " match" : " yet"}.</div>`}
+  <p class="small muted" style="margin:10px 2px">Only money spent. Passes and outfits paid with Crystals are under Items, Crystals.</p>`;
 }
 function entryForm(e) {
   if (e.kind === "pull") return pullForm(e);
   if (e.kind === "gain") return gainForm(e);
-  modal(`<h3>${e.kind === "purchase" ? "Purchase" : "Correction"}</h3>
+  const buy = e.kind === "purchase", topUp = buy && !paidWithCrystals(e) && crystalsOf(e) > 0;
+  let payC = paidWithCrystals(e);
+  modal(`<h3>${buy ? "Purchase" : "Correction"}</h3>
     <div class="field"><label for="f_l">Name</label><input id="f_l" value="${esc(e.label)}"></div>
-    <div class="fields2"><div class="field"><label for="f_w">Wishes${e.kind === "adjust" ? " (+ or −)" : ""}</label><input id="f_w" type="number" inputmode="decimal" step="any" value="${e.wishes}"></div>
-    ${e.kind === "purchase" ? `<div class="field"><label for="f_a">Paid (${sym()})</label><input id="f_a" type="number" inputmode="decimal" step="0.01" value="${e.amount}"></div>` : "<div></div>"}</div>
+    ${buy && !topUp ? `<div class="field"><label>Paid with</label><div class="seg full"><button type="button" data-pay="money">Money</button><button type="button" data-pay="cry">Crystals</button></div></div>` : ""}
+    <div class="fields2"><div class="field"><label for="f_w">Wishes${buy ? "" : " (+ or −)"}</label><input id="f_w" type="number" inputmode="decimal" step="any" value="${e.wishes}"></div>
+    ${buy ? `<div class="field" id="moneyA"><label for="f_a">Paid (${sym()})</label><input id="f_a" type="number" inputmode="decimal" step="0.01" value="${e.amount}"></div>
+      <div class="field" id="cryA"><label for="f_cc">Crystals used</label><input id="f_cc" type="number" inputmode="numeric" value="${e.crystalCost || ""}"></div>` : "<div></div>"}</div>
+    ${topUp || !buy ? `<div class="field"><label for="f_cr">Crystals${buy ? "" : " (+ or −)"}</label><input id="f_cr" type="number" inputmode="numeric" value="${crystalsOf(e) || ""}"></div>` : ""}
     <div class="field"><label for="f_d">Date</label><input id="f_d" type="date" value="${e.date}"></div>
-    ${e.kind === "purchase" ? viaSelect(e.via || "Other") : ""}
+    ${buy ? `<div id="viaF">${viaSelect(e.via || "Other")}</div>` : ""}
     <div class="field"><label for="f_n">Note</label><input id="f_n" value="${esc(e.note || "")}"></div>
     <div class="acts"><button class="btn danger" data-del>Delete</button><button class="btn primary" data-ok>Save</button></div>`, el => {
+    const upd = () => {
+      if (!buy) return;
+      el.querySelector("#moneyA").hidden = payC; el.querySelector("#viaF").hidden = payC; el.querySelector("#cryA").hidden = !payC;
+      el.querySelectorAll("[data-pay]").forEach(b => b.classList.toggle("on", (b.dataset.pay === "cry") === payC));
+    };
+    upd(); el.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => { payC = b.dataset.pay === "cry"; upd(); });
     bind(el, "[data-del]", () => { closeModal(); act("Deleted", () => { S.entries = S.entries.filter(x => x.id !== e.id); }); });
-    bind(el, "[data-ok]", () => { const v = {label: val(el, "#f_l").trim(), wishes: r2(val(el, "#f_w")), note: val(el, "#f_n").trim(), date: val(el, "#f_d") || e.date}; if (e.kind === "purchase") { v.amount = r2(val(el, "#f_a")); v.via = val(el, "#f_via"); if (v.date !== e.date) v.approx = false; } closeModal(); act("Saved", () => Object.assign(S.entries.find(x => x.id === e.id), v)); });
+    bind(el, "[data-ok]", () => {
+      const v = {label: val(el, "#f_l").trim(), wishes: r2(val(el, "#f_w")), note: val(el, "#f_n").trim(), date: val(el, "#f_d") || e.date};
+      const cr = el.querySelector("#f_cr") ? Math.round(num(val(el, "#f_cr"))) : null;
+      if (buy) {
+        if (v.date !== e.date) v.approx = false;
+        if (payC) Object.assign(v, {paidWith: "crystals", crystalCost: Math.max(0, Math.round(num(val(el, "#f_cc")))), amount: 0, via: ""});
+        else Object.assign(v, {paidWith: undefined, crystalCost: undefined, amount: r2(val(el, "#f_a")), via: val(el, "#f_via")});
+        if (topUp) v.crystals = Math.max(0, cr);
+      } else if (cr !== null) v.crystals = cr;
+      closeModal(); act("Saved", () => { const x = S.entries.find(y => y.id === e.id); Object.assign(x, v); ["paidWith", "crystalCost"].forEach(k => { if (x[k] === undefined) delete x[k]; }); });
+    });
   });
 }
 
@@ -1122,8 +1232,8 @@ function wizard(skipWelcome) {
 function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
 function exportCSV() {
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = [["Date", "Type", "Name", "Source or pack", "Wish pool", "Pity pool", "Wishes", "Empyrean", `Paid (${S.profile.currency})`, "5★", "Extra wishes", "Note"].join(",")];
-  ordered().forEach(e => { const d = delta(e); rows.push([e.date, e.kind, q(e.kind === "pull" ? e.bannerName : e.label), q(e.source || e.group || ""), q(e.bannerName || ""), e.pool || "", d.ds, d.emp, e.kind === "purchase" ? num(e.amount).toFixed(2) : "", q((e.results || []).map(r => `${r.card || ""} at pity ${r.pity} (${r.outcome})`).join("; ")), e.kind === "pull" ? extraOf(e) : "", q(e.note)].join(",")); });
+  const rows = [["Date", "Type", "Name", "Source or pack", "Wish pool", "Pity pool", "Wishes", "Empyrean", "Crystals", `Paid (${S.profile.currency})`, "Paid with", "5★", "Extra wishes", "Note"].join(",")];
+  ordered().forEach(e => { const d = delta(e); rows.push([e.date, e.kind, q(e.kind === "pull" ? e.bannerName : e.label), q(e.source || e.group || ""), q(e.bannerName || ""), e.pool || "", d.ds, d.emp, crystalsOf(e) || "", e.kind === "purchase" ? num(e.amount).toFixed(2) : "", e.kind === "purchase" ? q(paidWithCrystals(e) ? "Crystals" : e.via || "") : "", q((e.results || []).map(r => `${r.card || ""} at pity ${r.pity} (${r.outcome})`).join("; ")), e.kind === "pull" ? extraOf(e) : "", q(e.note)].join(",")); });
   download(`wishbound-${today()}.csv`, "﻿" + rows.join("\n"), "text/csv"); toast("Saved the CSV file");
 }
 function restoreBackup() {
@@ -1171,7 +1281,7 @@ const TOUR = [
   {tab: "banners", sel: "#tabs [data-go=banners]", t: "Wish pools", x: "The current banner, every past banner, and a check on whether your wishes will last."},
   {tab: "shop", sel: "#tabs [data-go=shop]", t: "Shop", x: "Passes and packs, your monthly budget, and a full breakdown of what you've spent."},
   {tab: "cards", sel: "#tabs [data-go=cards]", t: "Memories", x: "Every 5★ Memory. Mark the ones you have and the ones you want."},
-  {tab: "history", sel: "#tabs [data-go=history]", t: "History", x: "Everything you've logged, by month. Tap any item to edit or delete it."},
+  {tab: "history", sel: "#tabs [data-go=history]", t: "History", x: "Items shows what came in and went out, with what was left after. Purchases shows the money you spent, by month. Tap anything to edit it."},
   {tab: "settings", sel: "header [data-go=settings]", t: "Settings", x: "Backup files, currency and love interests. You can replay this tour here any time."}
 ];
 function endTour(msg) { const o = $("#tour"); if (o) o.remove(); window.removeEventListener("resize", tourPlace); meta.tour = true; saveMeta(); tab = "home"; render(); scrollTo(0, 0); if (msg) toast(msg); }
@@ -1249,7 +1359,7 @@ function render() {
 
 /* ---------- events ---------- */
 document.addEventListener("click", ev => {
-  const t = ev.target.closest("[data-go],[data-act],[data-pack],[data-edit],[data-pg],[data-hf],[data-theme],[data-buyplan],[data-editplan],[data-banner],[data-pity],[data-shop],[data-colli],[data-colf],[data-colv]");
+  const t = ev.target.closest("[data-go],[data-act],[data-pack],[data-edit],[data-pg],[data-hv],[data-hc],[data-theme],[data-buyplan],[data-editplan],[data-banner],[data-pity],[data-shop],[data-colli],[data-colf],[data-colv]");
   if (!t || (t.closest(".sheet") && !t.closest("[data-go]"))) return;
   const d = t.dataset;
   if (t.tagName === "A") ev.preventDefault();
@@ -1257,7 +1367,8 @@ document.addEventListener("click", ev => {
   if (d.pack) return buyForm(S.packs.find(p => p.id === d.pack));
   if (d.edit) return entryForm(S.entries.find(e => e.id === d.edit));
   if (d.pg) { packGroup = d.pg; return render(); }
-  if (d.hf) { histFilter = d.hf; return render(); }
+  if (d.hv) { histView = d.hv; return render(); }
+  if (d.hc) { histCur = d.hc; return render(); }
   if (d.shop) { shopView = d.shop; return render(); }
   if (d.colli) { colLi = d.colli; return render(); }
   if (d.colf) { colFilter = d.colf; return render(); }

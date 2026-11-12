@@ -4,6 +4,7 @@ Needs: pip install playwright"""
 import json, traceback
 from playwright.sync_api import sync_playwright
 import sys
+sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles can't print the star otherwise
 d=json.dumps({'v':3,'setupDone':True,'profile':{'currency':'MYR','lis':['caleb'],'trackStandard':False},'settings':{'theme':'light','autoIncome':False},'income':{'lastRun':'2026-01-01'},'entries':[{'id':'a','ts':1,'kind':'adjust','date':'2026-01-01','label':'Starting wishes','wishes':300}]})
 URL=sys.argv[1] if len(sys.argv)>1 else 'http://localhost:8765/'
 CHROME=sys.argv[2] if len(sys.argv)>2 else None
@@ -113,6 +114,26 @@ with sync_playwright() as p:
         print("history rows for Caleb", pg.locator("[data-edit]").count()); pg.locator("input[type=search], .toolbar input").first.fill(""); W(400)
         pg.locator("[data-edit]").first.click(); W(); print("EDIT:",pg.locator(".sheet h3").inner_text()); pg.locator(".xclose").click()
     step("history",hist)
+    def crystals():
+        # buy Crystals with money, then a pass with Crystals; money total must only count the Crystals
+        pg.locator("nav [data-go=shop]").click(); W(); pg.locator(".seg [data-shop=packs]").click(); W()
+        pg.locator("[data-pg=Crystals]").click(); W(); pg.locator("[data-pack=crys]").click(); W()
+        pg.fill("#f_cr","980"); pg.fill("#f_bd","150"); pg.fill("#f_pr","69.90"); pg.locator(".sheet [data-ok]").click(); W(400)
+        pg.locator(".seg [data-shop=passes]").click(); W(); pg.locator("[data-pack=ydiam]").click(); W()
+        pg.locator(".sheet [data-pay=cry]").click(); W(); pg.fill("#f_cc","680"); pg.locator(".sheet [data-ok]").click(); W(400)
+        cb=pg.evaluate("crystalBalance()"); assert cb==300, f"crystals left {cb}, expected 300"
+        pg.locator("nav [data-go=history]").click(); W()
+        for c in ["dia","ds","emp","cry","all"]: pg.locator(f"[data-hc={c}]").click(); W(150)
+        pg.locator("[data-hc=cry]").click(); W(); print("CRYSTAL ITEMS:", pg.locator(".rows").first.inner_text()[:300].replace("\n"," | "))
+        pg.locator("[data-hv=buys]").click(); W(); txt=pg.locator("#app").inner_text()
+        assert "Yearly Diamond Pass" not in txt, "Crystal-paid pass shows under Purchases"
+        assert "980 Purple Crystals" in txt, "Crystal top-up missing from Purchases"
+        pg.locator("[data-edit]").first.click(); W(); print("EDIT BUY:",pg.locator(".sheet").inner_text()[:200].replace("\n"," | ")); pg.locator(".xclose").click(); W()
+        pg.locator("[data-hv=items]").click(); W()
+        pg.locator("[data-act=match]").first.click() if pg.locator("[data-act=match]").count() else (pg.locator("[data-go=home]").first.click(), W(), pg.locator("[data-act=match]").first.click())
+        W(); pg.fill("#f_cr","500"); pg.locator(".sheet [data-ok]").click(); W(400)
+        cb=pg.evaluate("crystalBalance()"); assert cb==500, f"after match crystals {cb}"
+    step("crystals",crystals)
     def settings():
         pg.locator("[data-go=settings]").first.click(); W()
         for a in ["lis","profile","income","estimate","budget","newbanner"]:
