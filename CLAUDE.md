@@ -10,7 +10,8 @@ Wishbound is a free fan web app for Love and Deepspace (LADS) players: wishes, D
 
 ## How it's built
 - No framework, no build step. `index.html`, `css/style.css`, `js/data.js` (prices, daily income, pass dates, version, changelog, sync settings), `js/catalog.js` (wish pools in `BANNERS`, Memories in `MEMORIES`), `js/app.js` (the app), `sw.js` (offline cache), `assets/`, `icons/`.
-- New banner: add it to `BANNERS` in `js/catalog.js` (and any new Memories to `MEMORIES`). Game data comes from the LADS Wiki (loveanddeepspace.wiki.gg).
+- New banner: `js/catalog.js` is generated, don't edit it by hand. Add the banner (and any new 5★ Memories) to the lists in `tools/catalog.py`, then run `python3 tools/catalog.py`. Mark unconfirmed dates with `approx`. Game data comes from the LADS Wiki (loveanddeepspace.wiki.gg).
+- Testing: serve the repo (`python3 -m http.server 8765`) and run `python3 tools/smoke_test.py`. It clicks through every screen and pop-up and reports errors.
 - Only outside resource: Google Fonts (Figtree, Marcellus).
 
 ## User data: be careful
