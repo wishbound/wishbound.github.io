@@ -11,7 +11,7 @@ const CONFIG = {
   hardPity: 70,
   softPity: 60,
   diamondsPerWish: 150,
-  version: "1.0.0",
+  version: "0.4.0",
   // Sync between devices (Supabase). Leave empty until the database is set up.
   syncUrl: "",
   syncKey: ""
@@ -125,9 +125,10 @@ const PASSES = {
   ybonus:   {n: "Deluxe bonus"}
 };
 
-/* What's new. Newest first. Shown once after each update. */
+/* What's new. Newest first. Shown once after each update.
+   0.x while testing; 1.0.0 is the release to other players. */
 const CHANGELOG = [
-  {v: "1.0.0", date: "2026-11-12", title: "First public version", items: [
+  {v: "0.4.0", date: "2026-11-12", title: "Tour, update notes and detailed spending", items: [
     "A short tour of every feature. Skip it, or replay it any time from Settings",
     "This pop-up, which shows what changed whenever Wishbound is updated",
     "A close button (X) on every pop-up",
@@ -135,7 +136,7 @@ const CHANGELOG = [
     "Record where you paid: App Store, Google Play, LADS website or other",
     "Past banners show the month and how long they ran",
     "History search finds love interests, months and where you paid"]},
-  {v: "0.4", date: "2026-11-11", title: "New look", items: [
+  {v: "0.3.0", date: "2026-11-11", title: "New look", items: [
     "Redesigned home screen with bigger, clearer numbers",
     "Sidebar menu on iPad and computers",
     "Log wishes: pick the type first, then the banner",
@@ -143,11 +144,11 @@ const CHANGELOG = [
     "Banners up to Rebooting Dreams, with the missing 2026 reruns",
     "Loading a backup file now works on iPad and iPhone",
     "A preview with the icon when you share the link"]},
-  {v: "0.3", date: "2026-11-07", title: "Real game data", items: [
+  {v: "0.2.0", date: "2026-11-07", title: "Real game data", items: [
     "Every wish pool since launch and every 5★ Memory",
     "Simpler 5★ logging by love interest, limited or standard",
     "Pity shown as wishes since your last 5★, or wishes left",
     "Memories grid with Have, Want and rank"]},
-  {v: "0.1", date: "2026-11-06", title: "First version", items: [
+  {v: "0.1.0", date: "2026-11-06", title: "First version", items: [
     "Wishes, pity and spending in one place"]}
 ];
