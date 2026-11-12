@@ -2,11 +2,9 @@
 
 Wishbound is a free fan web app for Love and Deepspace (LADS) players: wishes, Diamonds, pity, spending, budget, every wish pool and 5★ Memory (Have/Want). It's meant as an easier-to-read version of the game's Item History and Purchase History, with spending tracked like a budget app (past, current, future, total). Live at https://wishbound.github.io (GitHub Pages, served from `main`). In testing; public release planned later.
 
-## Working with the owner
-- The owner is not a programmer. Explain things in plain, short English, without jargon. Tell her exactly what to click or type when she has to do something herself.
-- Plan first: for anything bigger than a small fix, write a short plan in plain words and get her OK before changing code.
-- She plays LADS herself, tests on her iPad, and will say when new banners come out.
+## Style
 - Design: simple, pretty, close to the game's look. Wording plain, not "AI slop".
+- Works well on iPad and phone.
 
 ## How it's built
 - No framework, no build step. `index.html`, `css/style.css`, `js/data.js` (prices, daily income, pass dates, version, changelog, sync settings), `js/catalog.js` (wish pools in `BANNERS`, Memories in `MEMORIES`), `js/app.js` (the app), `sw.js` (offline cache), `assets/`, `icons/`.
@@ -24,8 +22,8 @@ Wishbound is a free fan web app for Love and Deepspace (LADS) players: wishes, D
 2. Bump `VERSION` in `sw.js` to match (`wishbound-1.x.y`). If you add a new app file, add it to `FILES` in `sw.js`.
 3. Check on a tablet- and phone-sized screen, then commit and push to `main`. Use a branch for risky experiments.
 
-## Owner's identity: important
-- Public credit is only `@pookieleb` (X) and the GitHub organization `wishbound`. Never put the owner's real name, other social handles, or links to her other projects in this repo, the app, or commit messages.
+## Credit: important
+- Public credit is only `@pookieleb` (X) and the GitHub organization `wishbound`. Never add any real name, other social handles, or links to other projects in this repo, the app, or commit messages.
 - This repo is public. No personal details, keys or passwords.
 - Keep the fan-made disclaimer (not affiliated with Infold Games / Papergames) and the copyright note in the README.
 
