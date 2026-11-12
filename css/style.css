@@ -261,3 +261,20 @@ footer.credit .name{font:400 16px var(--display);color:var(--text)}
 .xclose{position:sticky;top:0;float:right;z-index:3;width:34px;height:34px;margin:-10px -6px -40px 10px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .xclose:hover{color:var(--text);background:var(--raise)}
 .scrim[data-lock] .xclose{display:none}
+
+/* tour */
+#tour{position:fixed;inset:0;z-index:80}
+#tour .spot{position:fixed;border-radius:18px;box-shadow:0 0 0 9999px rgba(8,10,30,.66);transition:all .25s ease;pointer-events:none;outline:2px solid rgba(240,210,150,.9);outline-offset:2px}
+#tour .tcard{position:fixed;background:var(--surface);color:var(--text);border-radius:20px;padding:16px 16px 12px;box-shadow:0 20px 50px -10px rgba(0,0,0,.5);transition:top .25s ease,left .25s ease}
+#tour .tcard h3{margin:2px 0 4px;font:400 21px/1.2 var(--display)}
+#tour .tcard p{margin:0 0 12px;color:var(--muted);font-size:14.5px;line-height:1.5}
+#tour .tstep{font-size:12px;font-weight:600;color:var(--faint)}
+#tour .tacts{display:flex;gap:8px;align-items:center}
+/* what's new */
+.clist{margin:12px 0 4px;padding-left:20px;line-height:1.55}
+.clist li{margin:4px 0}
+.clpast{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.clpast summary{cursor:pointer;font-weight:600;color:var(--muted)}
+.cl{margin-top:14px}
+.cl ul{margin:0;padding-left:20px;font-size:14px;line-height:1.5;color:var(--muted)}
+.clh{display:flex;justify-content:space-between;align-items:baseline}

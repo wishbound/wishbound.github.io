@@ -275,6 +275,7 @@ function modal(html, onMount, reuse) {
 }
 function closeModal() { const s = $("#scrim"); if (s) s.remove(); }
 document.addEventListener("keydown", e => { const s = $("#scrim"); if (e.key === "Escape" && s && !s.dataset.lock) closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#tour")) endTour(); });
 const bind = (el, sel, fn) => { const x = el.querySelector(sel); if (x) x.onclick = fn; };
 function confirmBox(title, text, okLabel, fn) {
   modal(`<h3>${esc(title)}</h3><div class="desc">${esc(text)}</div><div class="acts"><button class="btn" data-x>Cancel</button><button class="btn danger" data-ok>${esc(okLabel)}</button></div>`, el => {
@@ -938,6 +939,11 @@ function viewSettings() {
   <div class="panel pad"><div class="seg">${["auto", "light", "dark"].map(t => `<button class="${S.settings.theme === t ? "on" : ""}" data-theme="${t}">${{auto: "Match my phone", light: "Light", dark: "Dark"}[t]}</button>`).join("")}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn sm" data-act="headerimg">${S.images.header ? "Change" : "Add"} header picture</button>${S.images.header ? `<button class="btn sm" data-act="rmheader">Remove</button>` : ""}</div>
     <p class="small muted" style="margin:8px 0 0">Your pictures stay on this device.</p></div>
+  <h2 class="sec">Help</h2>
+  <div class="panel"><ul class="rows">
+    <li><div class="main"><div class="t">Tour</div><div class="s">A quick look at every feature</div></div><button class="btn sm" data-act="tour">Start</button></li>
+    <li><div class="main"><div class="t">What's new</div><div class="s">Version ${CONFIG.version}, ${fmtDate(CHANGELOG[0].date)}</div></div><button class="btn sm" data-act="whatsnew">See</button></li>
+  </ul></div>
   <h2 class="sec">Your data</h2>
   <div class="panel"><ul class="rows">
     <li><div class="main"><div class="t">Backup file</div><div class="s">Save everything to a file, or load one</div></div><div style="display:flex;gap:6px"><button class="btn sm" data-act="backup">Save</button><button class="btn sm" data-act="restore">Load</button></div></li>
@@ -1096,7 +1102,7 @@ function wizard(skipWelcome) {
     Object.entries(d.y).forEach(([k, on]) => { if (on) S.passes[k] = YEARLY.end; else delete S.passes[k]; });
     if (Object.values(d.y).every(Boolean)) S.passes.ybonus = YEARLY.end; else delete S.passes.ybonus;
     S.income.lastRun = today(); S.setupDone = true; if (d.lis.length === 1) colLi = d.lis[0];
-  }, false);
+  }, false) || (meta.seen = CONFIG.version, saveMeta(), setTimeout(tourOffer, 500));
   const draw = () => modal(`${step ? `<div class="steps">${Array.from({length: N - 1}, (_, i) => `<i class="${i < step ? "on" : ""}"></i>`).join("")}</div>` : ""}${body()}
       ${step ? `<div class="acts" style="margin-top:16px"><button class="btn" data-back>Back</button><button class="btn primary" data-next>${step === N - 1 ? "Done" : "Next"}</button></div>` : ""}`, (el, scrim) => {
     scrim.dataset.lock = "1";
@@ -1135,7 +1141,7 @@ function restoreBackup() {
       inp.remove();
       let d; try { d = JSON.parse(String(rd.result).replace(/^\uFEFF/, "")); } catch (e) { return toast("That file isn't a Wishbound backup"); }
       if (!d || !Array.isArray(d.entries)) return toast("That file isn't a Wishbound backup");
-      const go = () => { closeModal(); act("Backup loaded", () => { const sync = S.sync; S = normalise(d); S.sync = sync; }); tab = "home"; render(); if (!S.setupDone) setTimeout(() => wizard(true), 250); };
+      const go = () => { closeModal(); act("Backup loaded", () => { const sync = S.sync; S = normalise(d); S.sync = sync; }); tab = "home"; render(); if (!S.setupDone) setTimeout(() => wizard(true), 250); else { meta.seen = CONFIG.version; saveMeta(); setTimeout(tourOffer, 500); } };
       if (S.entries.length) confirmBox("Load this backup?", `It has ${d.entries.length} entries and replaces everything on this device.`, "Load it", go); else go();
     };
     rd.readAsText(f);
@@ -1151,6 +1157,79 @@ function footer() {
   return `<footer class="credit"><div class="name">${CONFIG.appName}</div>by <a href="${CONFIG.authorUrl}" target="_blank" rel="noopener">${CONFIG.author}</a>, <a href="${CONFIG.githubUrl}" target="_blank" rel="noopener">GitHub</a><br>
     A fan-made tool for Love and Deepspace. Not affiliated with Infold Games.${CONFIG.kofiUrl ? `<br><a class="btn sm" style="margin-top:8px" href="${CONFIG.kofiUrl}" target="_blank" rel="noopener">Support ${CONFIG.appName}</a>` : ""}</footer>`;
 }
+/* ---------- tour and what's new ---------- */
+const META_KEY = "wishbound-meta";
+const meta = (() => { try { return JSON.parse(localStorage.getItem(META_KEY)) || {}; } catch (e) { return {}; } })();
+const saveMeta = () => { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {} };
+const TOUR = [
+  {tab: "home", sel: ".hbal", t: "Wishes to spend", x: "Your Diamonds and Deepspace Wishes together, shown as wishes. Daily login income is added for you each day."},
+  {tab: "home", sel: ".hstats", t: "Pity", x: "Wishes since your last 5★, for limited and rerun pools. Tap a box to correct it if it doesn't match the game."},
+  {tab: "home", sel: ".heroacts [data-act=pull]", t: "Log wishes", x: "After you pull, pick the type and banner, enter how many wishes you used, and add any 5★ you got."},
+  {tab: "home", sel: ".heroacts [data-go=shop]", t: "Buy", x: "Record a pass or pack you bought, with the price and where you paid."},
+  {tab: "home", sel: ".heroacts [data-act=gain]", t: "Free wishes", x: "Add wishes from Orbit, events, codes and milestones."},
+  {tab: "home", sel: ".heroacts [data-act=match]", t: "Match game", x: "If your total is off, enter what the game shows and Wishbound fixes it."},
+  {tab: "banners", sel: "#tabs [data-go=banners]", t: "Wish pools", x: "The current banner, every past banner, and a check on whether your wishes will last."},
+  {tab: "shop", sel: "#tabs [data-go=shop]", t: "Shop", x: "Passes and packs, your monthly budget, and a full breakdown of what you've spent."},
+  {tab: "cards", sel: "#tabs [data-go=cards]", t: "Memories", x: "Every 5★ Memory. Mark the ones you have and the ones you want."},
+  {tab: "history", sel: "#tabs [data-go=history]", t: "History", x: "Everything you've logged, by month. Tap any item to edit or delete it."},
+  {tab: "settings", sel: "header [data-go=settings]", t: "Settings", x: "Backup files, currency and love interests. You can replay this tour here any time."}
+];
+function endTour(msg) { const o = $("#tour"); if (o) o.remove(); window.removeEventListener("resize", tourPlace); meta.tour = true; saveMeta(); tab = "home"; render(); scrollTo(0, 0); if (msg) toast(msg); }
+let tourI = 0;
+function tourPlace() {
+  const o = $("#tour"), st = TOUR[tourI]; if (!o || !st) return;
+  const el = [...document.querySelectorAll(st.sel)].find(e => e.offsetParent !== null);
+  if (!el) return;
+  const r = el.getBoundingClientRect(), pad = 8, spot = o.querySelector(".spot"), card = o.querySelector(".tcard");
+  Object.assign(spot.style, {left: r.left - pad + "px", top: r.top - pad + "px", width: r.width + pad * 2 + "px", height: r.height + pad * 2 + "px"});
+  const cw = Math.min(340, innerWidth - 24), ch = card.offsetHeight, below = r.bottom + pad + 12 + ch < innerHeight;
+  card.style.width = cw + "px";
+  card.style.left = Math.max(12, Math.min(innerWidth - cw - 12, r.left + r.width / 2 - cw / 2)) + "px";
+  card.style.top = (below ? r.bottom + pad + 12 : Math.max(12, r.top - pad - 12 - ch)) + "px";
+}
+function tour(i = 0) {
+  closeModal();
+  if (i < 0) i = 0;
+  if (i >= TOUR.length) return endTour("That's everything. Replay the tour from Settings.");
+  tourI = i; const st = TOUR[i];
+  if (tab !== st.tab) { tab = st.tab; render(); }
+  const el = [...document.querySelectorAll(st.sel)].find(e => e.offsetParent !== null);
+  if (!el) return tour(i + 1);
+  if (!st.sel.startsWith("#tabs") && !st.sel.startsWith("header")) el.scrollIntoView({block: "center"}); else scrollTo(0, 0);
+  let o = $("#tour");
+  if (!o) { o = document.createElement("div"); o.id = "tour"; document.body.appendChild(o); window.addEventListener("resize", tourPlace); }
+  o.innerHTML = `<div class="spot"></div><div class="tcard" role="dialog" aria-live="polite"><div class="tstep">${i + 1} of ${TOUR.length}</div><h3>${st.t}</h3><p>${st.x}</p>
+    <div class="tacts"><button class="linkbtn" data-tskip>Skip tour</button><span style="flex:1"></span>${i ? `<button class="btn sm" data-tback>Back</button>` : ""}<button class="btn sm primary" data-tnext>${i === TOUR.length - 1 ? "Done" : "Next"}</button></div></div>`;
+  o.querySelector("[data-tskip]").onclick = () => endTour("You can replay the tour from Settings.");
+  o.querySelector("[data-tnext]").onclick = () => tour(i + 1);
+  const bk = o.querySelector("[data-tback]"); if (bk) bk.onclick = () => tour(i - 1);
+  requestAnimationFrame(() => setTimeout(tourPlace, 60));
+}
+function tourOffer() {
+  if (meta.tour) return;
+  modal(`<div style="text-align:center;padding:6px 0 2px"><div style="width:56px;margin:0 auto 10px">${LOGO}</div><h3>Want a quick tour?</h3>
+    <div class="desc" style="margin-top:6px">About a minute. It shows where everything is. You can skip it, or replay it later from Settings.</div></div>
+    <div class="acts"><button class="btn" data-x>Not now</button><button class="btn primary" data-ok>Start the tour</button></div>`, el => {
+    bind(el, "[data-x]", () => { closeModal(); meta.tour = true; saveMeta(); toast("You can start the tour from Settings."); });
+    bind(el, "[data-ok]", () => tour(0));
+  });
+}
+function whatsNew(all) {
+  const cur = CHANGELOG[0], older = CHANGELOG.slice(1);
+  const block = c => `<div class="cl"><div class="clh"><b>Version ${c.v}</b><span class="muted small">${fmtDate(c.date)}</span></div><div class="small muted" style="margin-bottom:6px">${esc(c.title)}</div><ul>${c.items.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>`;
+  modal(`<div class="small muted">What's new</div><h3>Version ${cur.v}</h3><div class="desc">${esc(cur.title)}, ${fmtDate(cur.date)}</div>
+    <ul class="clist">${cur.items.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    ${older.length ? `<details ${all ? "open" : ""} class="clpast"><summary>Past updates</summary>${older.map(block).join("")}</details>` : ""}
+    <div class="acts"><button class="btn primary" data-ok>Got it</button></div>`, el => bind(el, "[data-ok]", closeModal));
+}
+function maybeWhatsNew(tries = 0) {
+  if (meta.seen === CONFIG.version) return;
+  if ($("#scrim") || $("#tour")) { if (tries < 40) setTimeout(() => maybeWhatsNew(tries + 1), 1000); return; }
+  meta.seen = CONFIG.version; saveMeta();
+  if (!S.setupDone) return;
+  whatsNew();
+}
+
 function render() {
   applyTheme();
   const views = {home: viewHome, banners: viewBanners, shop: viewShop, cards: viewCards, history: viewHistory, settings: viewSettings};
@@ -1202,6 +1281,8 @@ document.addEventListener("click", ev => {
     case "income": return incomeForm();
     case "estimate": return estimateForm();
     case "setup": return wizard(true);
+    case "tour": return tour(0);
+    case "whatsnew": return whatsNew(true);
     case "theme": return act("", () => { S.settings.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; }, false);
     case "budget": return modal(`<h3>Monthly budget</h3><div class="desc">How much you're happy to spend on the game each month. Leave empty for no budget.</div><div class="field"><label for="f_v">Budget (${sym()})</label><input id="f_v" type="number" inputmode="decimal" value="${S.settings.budget || ""}"></div><div class="acts"><button class="btn" data-x>Cancel</button><button class="btn primary" data-ok>Save</button></div>`, el => { bind(el, "[data-x]", closeModal); bind(el, "[data-ok]", () => { const v = num(val(el, "#f_v")); closeModal(); act("Saved", () => { S.settings.budget = v; }, false); }); });
     case "headerimg": return pickImage(1200, url => act("Header picture set", () => { S.images.header = url; }, false));
@@ -1221,5 +1302,5 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 
 /* ---------- start ---------- */
 load(); if (S.profile.lis.length === 1) colLi = S.profile.lis[0]; render(); probeAssets();
-if (!S.setupDone) wizard(); else { runAutoIncome(); pullNow(true); }
+if (!S.setupDone) wizard(); else { runAutoIncome(); pullNow(true); setTimeout(maybeWhatsNew, 600); }
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});

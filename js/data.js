@@ -11,7 +11,7 @@ const CONFIG = {
   hardPity: 70,
   softPity: 60,
   diamondsPerWish: 150,
-  version: "3.5.0",
+  version: "1.0.0",
   // Sync between devices (Supabase). Leave empty until the database is set up.
   syncUrl: "",
   syncKey: ""
@@ -124,3 +124,30 @@ const PASSES = {
   ygrowth:  {n: "Yearly Growth Pass"},
   ybonus:   {n: "Deluxe bonus"}
 };
+
+/* What's new. Newest first. Shown once after each update. */
+const CHANGELOG = [
+  {v: "1.0.0", date: "2026-11-12", title: "First public version", items: [
+    "A short tour of every feature. Skip it, or replay it any time from Settings",
+    "This pop-up, which shows what changed whenever Wishbound is updated",
+    "A close button (X) on every pop-up",
+    "Spending in full detail: this month, coming up, past months and totals",
+    "Record where you paid: App Store, Google Play, LADS website or other",
+    "Past banners show the month and how long they ran",
+    "History search finds love interests, months and where you paid"]},
+  {v: "0.4", date: "2026-11-11", title: "New look", items: [
+    "Redesigned home screen with bigger, clearer numbers",
+    "Sidebar menu on iPad and computers",
+    "Log wishes: pick the type first, then the banner",
+    "New heart-in-orbit icon and love interest pictures",
+    "Banners up to Rebooting Dreams, with the missing 2026 reruns",
+    "Loading a backup file now works on iPad and iPhone",
+    "A preview with the icon when you share the link"]},
+  {v: "0.3", date: "2026-11-07", title: "Real game data", items: [
+    "Every wish pool since launch and every 5★ Memory",
+    "Simpler 5★ logging by love interest, limited or standard",
+    "Pity shown as wishes since your last 5★, or wishes left",
+    "Memories grid with Have, Want and rank"]},
+  {v: "0.1", date: "2026-11-06", title: "First version", items: [
+    "Wishes, pity and spending in one place"]}
+];
