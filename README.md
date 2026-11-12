@@ -20,6 +20,8 @@ Your data stays on your own device. Nothing is sent anywhere.
 
 - `js/catalog.js` holds the wish pools and Memories. Add new pools here.
 - `js/data.js` holds prices, daily income amounts, yearly pass dates and sync settings.
+- `tools/catalog.py` builds `js/catalog.js` (banners and 5★ Memories). Edit it, then run `python3 tools/catalog.py`.
+- `tools/smoke_test.py` clicks through every screen and reports errors.
 - `assets/` holds the shared pictures (see `assets/README.md`).
 - `supabase/setup.sql` is for an optional sync feature that isn't switched on yet.
 
