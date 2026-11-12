@@ -11,7 +11,7 @@ const CONFIG = {
   hardPity: 70,
   softPity: 60,
   diamondsPerWish: 150,
-  version: "0.4.0",
+  version: "1.1.0",
   // Sync between devices (Supabase). Leave empty until the database is set up.
   syncUrl: "",
   syncKey: ""
@@ -126,9 +126,9 @@ const PASSES = {
 };
 
 /* What's new. Newest first. Shown once after each update.
-   0.x while testing; 1.0.0 is the release to other players. */
+   1.0.0 is the first version in use. New features add to the middle number, fixes to the last. */
 const CHANGELOG = [
-  {v: "0.4.0", date: "2026-11-12", title: "Tour, update notes and detailed spending", items: [
+  {v: "1.1.0", date: "2026-11-12", title: "Tour, update notes and detailed spending", items: [
     "A short tour of every feature. Skip it, or replay it any time from Settings",
     "This pop-up, which shows what changed whenever Wishbound is updated",
     "A close button (X) on every pop-up",
@@ -136,7 +136,7 @@ const CHANGELOG = [
     "Record where you paid: App Store, Google Play, LADS website or other",
     "Past banners show the month and how long they ran",
     "History search finds love interests, months and where you paid"]},
-  {v: "0.3.0", date: "2026-11-11", title: "New look", items: [
+  {v: "1.0.0", date: "2026-11-11", title: "First version in use: new look", items: [
     "Redesigned home screen with bigger, clearer numbers",
     "Sidebar menu on iPad and computers",
     "Log wishes: pick the type first, then the banner",
