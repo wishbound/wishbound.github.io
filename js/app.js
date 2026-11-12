@@ -613,8 +613,9 @@ function gainForm(e) {
     bind(el, "[data-ok]", () => {
       const v = r2(w.value), emp = el.querySelector("#f_emp") ? r2(val(el, "#f_emp")) : 0;
       if (!(v > 0) && !(emp > 0)) return toast("Enter Diamonds or wishes");
-      const src = val(el, "#f_s"), en = {kind: "gain", date: val(el, "#f_d") || today(), source: src, label: src, wishes: v, emp, note: val(el, "#f_n").trim()};
-      closeModal(); act(edit ? "Saved" : `Added ${plural(v || emp, "wish")}`, () => { if (edit) Object.assign(S.entries.find(x => x.id === e.id), en); else S.entries.push({id: uid(), ts: Date.now(), ...en}); });
+      const dia = dm.value && Math.abs(D2W(dm.value) - v) < 0.01 ? num(dm.value) : null;
+      const src = val(el, "#f_s"), en = {kind: "gain", date: val(el, "#f_d") || today(), source: src, label: src, wishes: v, emp, diamonds: dia, note: val(el, "#f_n").trim()};
+      closeModal(); act(edit ? "Saved" : dia ? `Added ${dia.toLocaleString()} Diamonds` : `Added ${plural(v || emp, "wish")}`, () => { if (edit) Object.assign(S.entries.find(x => x.id === e.id), en); else S.entries.push({id: uid(), ts: Date.now(), ...en}); });
     });
   });
 }
@@ -885,7 +886,7 @@ function luck() {
 }
 function viewHistory() {
   const L = luck(), q = histQuery.trim().toLowerCase();
-  const list = ordered().reverse().filter(e => (histFilter === "all" || e.kind === histFilter) && (!q || JSON.stringify([e.label, e.note, e.group, e.source, e.bannerName, (e.results || []).map(r => r.card)]).toLowerCase().includes(q)));
+  const list = ordered().reverse().filter(e => (histFilter === "all" || e.kind === histFilter) && (!q || JSON.stringify([e.label, e.note, e.group, e.source, e.via, e.bannerName, fmtMonth(e.date.slice(0, 7)), (bannerById(e.bannerId)?.lis || []).map(k => liOf(k)?.n), (e.results || []).map(r => [r.card, liOf(r.li)?.n])]).toLowerCase().includes(q)));
   const byM = {}; list.forEach(e => (byM[e.date.slice(0, 7)] = byM[e.date.slice(0, 7)] || []).push(e));
   return `<div class="tiles" style="margin-top:4px">
     <div class="tile"><div class="k">Average pity for a 5★</div><div class="v">${L.n ? L.avg.toFixed(1) : "–"}</div><div class="h">${plural(L.n, "5★")} logged</div></div>
